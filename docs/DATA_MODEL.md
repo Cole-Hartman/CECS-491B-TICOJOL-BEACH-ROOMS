@@ -13,10 +13,10 @@ Campus buildings with geolocation for map display.
 | Column       | Type               | Constraints                  | Description                               |
 |------------- |------------------- |----------------------------- |------------------------------------------ |
 | `id`         | `uuid`             | PK, default `gen_random_uuid()` | Primary key                            |
-| `name`       | `text`             | NOT NULL                     | Full name, e.g., "Engineering & Computer Science" |
+| `name`       | `text`             |                              | Full name, e.g., "Engineering & Computer Science" |
 | `code`       | `text`             | NOT NULL, UNIQUE             | Short code, e.g., "ECS", "LA5"            |
-| `latitude`   | `double precision` | NOT NULL                     | GPS latitude                              |
-| `longitude`  | `double precision` | NOT NULL                     | GPS longitude                             |
+| `latitude`   | `double precision` |                              | GPS latitude                              |
+| `longitude`  | `double precision` |                              | GPS longitude                             |
 | `address`    | `text`             |                              | Street address (optional)                 |
 | `image_url`          | `text`             |                              | Photo of the building exterior                          |
 | `weekday_open`       | `time`             |                              | Mon–Fri opening time. NULL = closed on weekdays.        |

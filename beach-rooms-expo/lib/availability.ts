@@ -1,5 +1,4 @@
 import type {
-  Building,
   ClassSchedule,
   ClassroomWithBuilding,
   ClassroomAvailability,
@@ -20,36 +19,66 @@ export function parseTimeToday(timeString: string, referenceDate: Date = new Dat
 }
 
 /**
- * Check if a building is currently open based on its hours
+ * Check if a building is open based on its stored hours.
+ * Only weekday hours are supported; weekends are assumed closed.
  */
-export function isBuildingOpen(building: Building, now: Date = new Date()): boolean {
+export function isBuildingOpen(
+  building: ClassroomWithBuilding['building'],
+  now: Date = new Date()
+): { isOpen: boolean; opensAt: Date | null; closesAt: Date | null } {
   const dayOfWeek = now.getDay();
 
-  let openTime: string | null = null;
-  let closeTime: string | null = null;
-
-  if (dayOfWeek === 0) {
-    // Sunday
-    openTime = building.sunday_open;
-    closeTime = building.sunday_close;
-  } else if (dayOfWeek === 6) {
-    // Saturday
-    openTime = building.saturday_open;
-    closeTime = building.saturday_close;
-  } else {
-    // Weekday
-    openTime = building.weekday_open;
-    closeTime = building.weekday_close;
+  // Weekends are closed (0=Sunday, 6=Saturday)
+  if (dayOfWeek === 0 || dayOfWeek === 6) {
+    return { isOpen: false, opensAt: null, closesAt: null };
   }
 
+  // Weekday hours
+  const openTime = building.weekday_open;
+  const closeTime = building.weekday_close;
+
+  // No hours set
   if (!openTime || !closeTime) {
-    return false;
+    return { isOpen: false, opensAt: null, closesAt: null };
   }
 
-  const openDate = parseTimeToday(openTime, now);
-  const closeDate = parseTimeToday(closeTime, now);
+  const opensAt = parseTimeToday(openTime, now);
+  const closesAt = parseTimeToday(closeTime, now);
 
-  return now >= openDate && now < closeDate;
+  const isOpen = now >= opensAt && now <= closesAt;
+
+  return { isOpen, opensAt, closesAt };
+}
+
+/**
+ * Format time until an event
+ */
+function formatTimeUntil(targetTime: Date, prefix: string): string {
+  const hours = targetTime.getHours();
+  const minutes = targetTime.getMinutes();
+  const ampm = hours >= 12 ? 'PM' : 'AM';
+  const displayHours = hours % 12 || 12;
+  const displayMinutes = minutes.toString().padStart(2, '0');
+
+  return `${prefix} ${displayHours}:${displayMinutes} ${ampm}`;
+}
+
+/**
+ * Format how long a room is free for
+ */
+function formatFreeTime(minutes: number): string {
+  if (minutes < 60) {
+    return `Free for ${minutes} min`;
+  }
+
+  const hours = Math.floor(minutes / 60);
+  const remainingMinutes = minutes % 60;
+
+  if (remainingMinutes === 0) {
+    return `Free for ${hours}h`;
+  }
+
+  return `Free for ${hours}h ${remainingMinutes}m`;
 }
 
 /**
@@ -60,10 +89,40 @@ export function calculateAvailability(
   schedules: ClassSchedule[],
   now: Date = new Date()
 ): ClassroomAvailability {
-  const buildingOpen = isBuildingOpen(classroom.building, now);
+  const dayOfWeek = now.getDay();
+  const isWeekend = dayOfWeek === 0 || dayOfWeek === 6;
+  const buildingStatus = isBuildingOpen(classroom.building, now);
 
-  // If building is closed, room is not available
-  if (!buildingOpen) {
+  // If building has no hours for today (weekend or no data)
+  if (!buildingStatus.opensAt || !buildingStatus.closesAt) {
+    return {
+      classroom,
+      isAvailable: false,
+      isBuildingOpen: false,
+      status: 'closed',
+      nextClassStartsAt: null,
+      currentClassEndsAt: null,
+      minutesUntilNextClass: null,
+      statusText: isWeekend ? 'Closed on weekends' : 'No classes today',
+    };
+  }
+
+  // If building hasn't opened yet
+  if (now < buildingStatus.opensAt) {
+    return {
+      classroom,
+      isAvailable: false,
+      isBuildingOpen: false,
+      status: 'closed',
+      nextClassStartsAt: buildingStatus.opensAt,
+      currentClassEndsAt: null,
+      minutesUntilNextClass: null,
+      statusText: formatTimeUntil(buildingStatus.opensAt, 'Opens at'),
+    };
+  }
+
+  // If building is closed (after hours)
+  if (now > buildingStatus.closesAt) {
     return {
       classroom,
       isAvailable: false,
@@ -76,14 +135,11 @@ export function calculateAvailability(
     };
   }
 
-  // Filter schedules for this classroom
-  const roomSchedules = schedules.filter((s) => s.classroom_id === classroom.id);
-
   // Check if any class is currently in session
   let currentClass: ClassSchedule | null = null;
   let nextClass: ClassSchedule | null = null;
 
-  for (const schedule of roomSchedules) {
+  for (const schedule of schedules) {
     const startTime = parseTimeToday(schedule.start_time, now);
     const endTime = parseTimeToday(schedule.end_time, now);
 
@@ -107,7 +163,7 @@ export function calculateAvailability(
       nextClassStartsAt: nextClass ? parseTimeToday(nextClass.start_time, now) : null,
       currentClassEndsAt: endsAt,
       minutesUntilNextClass: null,
-      statusText: formatTimeUntil(endsAt, now, 'Available at'),
+      statusText: formatTimeUntil(endsAt, 'Available at'),
     };
   }
 
@@ -142,37 +198,6 @@ export function calculateAvailability(
     minutesUntilNextClass: null,
     statusText: 'Available all day',
   };
-}
-
-/**
- * Format how long a room is free for
- */
-function formatFreeTime(minutes: number): string {
-  if (minutes < 60) {
-    return `Free for ${minutes} min`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (remainingMinutes === 0) {
-    return `Free for ${hours}h`;
-  }
-
-  return `Free for ${hours}h ${remainingMinutes}m`;
-}
-
-/**
- * Format time until an event
- */
-function formatTimeUntil(targetTime: Date, now: Date, prefix: string): string {
-  const hours = targetTime.getHours();
-  const minutes = targetTime.getMinutes();
-  const ampm = hours >= 12 ? 'PM' : 'AM';
-  const displayHours = hours % 12 || 12;
-  const displayMinutes = minutes.toString().padStart(2, '0');
-
-  return `${prefix} ${displayHours}:${displayMinutes} ${ampm}`;
 }
 
 /**

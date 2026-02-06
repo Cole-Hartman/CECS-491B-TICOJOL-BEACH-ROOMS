@@ -61,7 +61,11 @@ export function useClassrooms(): UseClassroomsResult {
           if (!classroomWithBuilding.building) {
             return null;
           }
-          return calculateAvailability(classroomWithBuilding, schedules, now);
+          // Filter schedules for this specific room
+          const roomSchedules = schedules.filter(
+            (s) => s.classroom_id === classroomWithBuilding.id
+          );
+          return calculateAvailability(classroomWithBuilding, roomSchedules, now);
         })
         .filter((c): c is ClassroomAvailability => c !== null);
 

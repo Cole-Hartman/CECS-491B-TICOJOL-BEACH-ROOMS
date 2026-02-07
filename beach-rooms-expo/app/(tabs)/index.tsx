@@ -1,10 +1,11 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  TextInput,
   TouchableOpacity,
   View,
 } from 'react-native';
@@ -22,14 +23,39 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, 'tint');
   const iconColor = useThemeColor({}, 'icon');
+  const textColor = useThemeColor({}, 'text');
 
   const { availableRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms();
   const [showAllOccupied, setShowAllOccupied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter rooms based on search query
+  const filteredAvailable = useMemo(() => {
+    if (!searchQuery.trim()) return availableRooms;
+    const query = searchQuery.toLowerCase();
+    return availableRooms.filter(
+      (room) =>
+        room.classroom.building.code.toLowerCase().includes(query) ||
+        room.classroom.room_number.toLowerCase().includes(query) ||
+        `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
+    );
+  }, [availableRooms, searchQuery]);
+
+  const filteredOccupied = useMemo(() => {
+    if (!searchQuery.trim()) return occupiedRooms;
+    const query = searchQuery.toLowerCase();
+    return occupiedRooms.filter(
+      (room) =>
+        room.classroom.building.code.toLowerCase().includes(query) ||
+        room.classroom.room_number.toLowerCase().includes(query) ||
+        `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
+    );
+  }, [occupiedRooms, searchQuery]);
 
   const displayedOccupied = showAllOccupied
-    ? occupiedRooms
-    : occupiedRooms.slice(0, INITIAL_OCCUPIED_LIMIT);
+    ? filteredOccupied
+    : filteredOccupied.slice(0, INITIAL_OCCUPIED_LIMIT);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -81,27 +107,29 @@ export default function HomeScreen() {
         <View style={styles.sectionHeader}>
           <ThemedText type="subtitle">Available Now</ThemedText>
           <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
-            {availableRooms.length} rooms
+            {filteredAvailable.length} rooms
           </ThemedText>
         </View>
 
-        {availableRooms.length === 0 ? (
+        {filteredAvailable.length === 0 ? (
           <View style={styles.emptySection}>
-            <ThemedText style={{ color: iconColor }}>No rooms available right now</ThemedText>
+            <ThemedText style={{ color: iconColor }}>
+              {searchQuery ? 'No matching rooms found' : 'No rooms available right now'}
+            </ThemedText>
           </View>
         ) : (
-          availableRooms.map((room) => (
+          filteredAvailable.map((room) => (
             <RoomCard key={room.classroom.id} availability={room} />
           ))
         )}
 
         {/* Occupied Rooms Section */}
-        {occupiedRooms.length > 0 && (
+        {filteredOccupied.length > 0 && (
           <>
             <View style={[styles.sectionHeader, styles.occupiedHeader]}>
               <ThemedText type="subtitle">Currently Occupied</ThemedText>
               <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
-                {occupiedRooms.length} rooms
+                {filteredOccupied.length} rooms
               </ThemedText>
             </View>
 
@@ -109,7 +137,7 @@ export default function HomeScreen() {
               <RoomCard key={room.classroom.id} availability={room} />
             ))}
 
-            {occupiedRooms.length > INITIAL_OCCUPIED_LIMIT && (
+            {filteredOccupied.length > INITIAL_OCCUPIED_LIMIT && (
               <TouchableOpacity
                 style={[styles.showMoreButton, { borderColor: iconColor }]}
                 onPress={() => setShowAllOccupied(!showAllOccupied)}
@@ -117,7 +145,7 @@ export default function HomeScreen() {
                 <ThemedText style={[styles.showMoreText, { color: tintColor }]}>
                   {showAllOccupied
                     ? 'Show Less'
-                    : `Show ${occupiedRooms.length - INITIAL_OCCUPIED_LIMIT} More`}
+                    : `Show ${filteredOccupied.length - INITIAL_OCCUPIED_LIMIT} More`}
                 </ThemedText>
                 <Ionicons
                   name={showAllOccupied ? 'chevron-up' : 'chevron-down'}
@@ -144,12 +172,23 @@ export default function HomeScreen() {
       </View>
 
       {/* Search Bar */}
-      <TouchableOpacity style={[styles.searchBar, { borderColor: iconColor }]}>
+      <View style={[styles.searchBar, { borderColor: iconColor }]}>
         <Ionicons name="search" size={20} color={iconColor} />
-        <ThemedText style={[styles.searchText, { color: iconColor }]}>
-          Search buildings or rooms...
-        </ThemedText>
-      </TouchableOpacity>
+        <TextInput
+          style={[styles.searchInput, { color: textColor }]}
+          placeholder="Search buildings or rooms..."
+          placeholderTextColor={iconColor}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color={iconColor} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
@@ -180,11 +219,11 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   header: {
-    marginTop: 20,
-    marginBottom: 24,
+    marginTop: 16,
+    marginBottom: 16,
   },
   subtitle: {
     marginTop: 4,
@@ -195,18 +234,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    marginBottom: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+    marginBottom: 16,
   },
-  searchText: {
+  searchInput: {
     flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
   },
   statsContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,

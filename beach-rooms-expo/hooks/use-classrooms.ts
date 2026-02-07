@@ -27,8 +27,17 @@ export function useClassrooms(): UseClassroomsResult {
     setError(null);
 
     try {
+      // Commented out for testing - using Monday at noon instead
+      // const now = new Date();
+      // const dayOfWeek = now.getDay();
+      
+      // Testing: using Monday at noon
       const now = new Date();
-      const dayOfWeek = now.getDay();
+      const currentDay = now.getDay();
+      const daysUntilMonday = currentDay === 1 ? 0 : (1 + 7 - currentDay) % 7; // Today if Monday, otherwise next Monday
+      now.setDate(now.getDate() + daysUntilMonday);
+      now.setHours(12, 0, 0, 0); // Set to noon
+      const dayOfWeek = 1; // Monday
 
       // Fetch classrooms with building info
       const { data: classroomsData, error: classroomsError } = await supabase
@@ -45,7 +54,7 @@ export function useClassrooms(): UseClassroomsResult {
         .from('class_schedules')
         .select('*')
         .eq('day_of_week', dayOfWeek)
-        .eq('semester', 'Spring 2025');
+        .eq('semester', 'Spring 2026');
 
       if (schedulesError) {
         throw new Error(schedulesError.message);

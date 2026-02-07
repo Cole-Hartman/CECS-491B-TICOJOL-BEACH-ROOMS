@@ -105,11 +105,11 @@ export function RoomCard({ availability, onPress }: RoomCardProps) {
 
 const styles = StyleSheet.create({
   card: {
-    paddingVertical: 14,
-    paddingHorizontal: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderRadius: 12,
     backgroundColor: 'rgba(128, 128, 128, 0.1)',
-    marginBottom: 12,
+    marginBottom: 10,
   },
   mainContent: {
     flexDirection: 'row',

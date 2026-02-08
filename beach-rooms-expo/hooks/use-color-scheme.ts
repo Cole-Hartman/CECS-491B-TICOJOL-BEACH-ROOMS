@@ -1,1 +1,4 @@
-export { useColorScheme } from 'react-native';
+// Force dark mode only - no dynamic switching
+export function useColorScheme(): 'dark' {
+  return 'dark';
+}

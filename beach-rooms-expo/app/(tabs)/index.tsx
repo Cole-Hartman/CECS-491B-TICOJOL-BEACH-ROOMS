@@ -192,19 +192,19 @@ export default function HomeScreen() {
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
-        <View style={[styles.statCard, { backgroundColor: tintColor }]}>
-          <ThemedText style={styles.statNumber} lightColor="#fff" darkColor="#fff">
+        <View style={[styles.statCard, styles.availableCard]}>
+          <ThemedText style={styles.statNumber} darkColor="#fff">
             {availableRooms.length}
           </ThemedText>
-          <ThemedText style={styles.statLabel} lightColor="#fff" darkColor="#fff">
+          <ThemedText style={styles.statLabel} darkColor="rgba(255,255,255,0.85)">
             Available Now
           </ThemedText>
         </View>
-        <View style={[styles.statCard, { backgroundColor: '#6c757d' }]}>
-          <ThemedText style={styles.statNumber} lightColor="#fff" darkColor="#fff">
+        <View style={[styles.statCard, styles.totalCard]}>
+          <ThemedText style={styles.statNumber} darkColor="#fff">
             {availableRooms.length + occupiedRooms.length}
           </ThemedText>
-          <ThemedText style={styles.statLabel} lightColor="#fff" darkColor="#fff">
+          <ThemedText style={styles.statLabel} darkColor="rgba(255,255,255,0.85)">
             Total Rooms
           </ThemedText>
         </View>
@@ -251,17 +251,26 @@ const styles = StyleSheet.create({
   },
   statCard: {
     flex: 1,
-    borderRadius: 12,
-    padding: 16,
+    borderRadius: 16,
+    paddingVertical: 18,
+    paddingHorizontal: 16,
     alignItems: 'center',
+    justifyContent: 'center',
+  },
+  availableCard: {
+    backgroundColor: '#4a9eba',
+  },
+  totalCard: {
+    backgroundColor: '#5a6268',
   },
   statNumber: {
-    fontSize: 32,
+    fontSize: 28,
     fontWeight: 'bold',
+    paddingTop: 10,
   },
   statLabel: {
-    fontSize: 14,
-    marginTop: 4,
+    fontSize: 13,
+    marginTop: 6,
   },
   roomList: {
     flex: 1,

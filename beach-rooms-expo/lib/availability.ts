@@ -81,6 +81,50 @@ function formatFreeTime(minutes: number): string {
   return `Free for ${hours}h ${remainingMinutes}m`;
 }
 
+const MIN_USABLE_MINUTES = 30;
+
+/**
+ * Find the next time when the room will be free for >= 30 minutes.
+ * Returns the Date when the usable window starts, or null if free rest of day.
+ */
+function findNextUsableTime(
+  schedules: ClassSchedule[],
+  fromTime: Date,
+  buildingCloses: Date
+): Date | null {
+  // Sort future schedules by start time
+  const futureSchedules = schedules
+    .map((s) => ({
+      start: parseTimeToday(s.start_time, fromTime),
+      end: parseTimeToday(s.end_time, fromTime),
+    }))
+    .filter((s) => s.end > fromTime)
+    .sort((a, b) => a.start.getTime() - b.start.getTime());
+
+  let checkTime = fromTime;
+
+  for (const schedule of futureSchedules) {
+    // Check gap between checkTime and this class start
+    const gapMinutes = Math.floor((schedule.start.getTime() - checkTime.getTime()) / 60000);
+
+    if (gapMinutes >= MIN_USABLE_MINUTES) {
+      // Found a usable gap starting at checkTime
+      return checkTime;
+    }
+
+    // Gap too short, move checkTime to after this class
+    checkTime = schedule.end;
+  }
+
+  // Check if there's usable time after all classes (before building closes)
+  const remainingMinutes = Math.floor((buildingCloses.getTime() - checkTime.getTime()) / 60000);
+  if (remainingMinutes >= MIN_USABLE_MINUTES) {
+    return checkTime;
+  }
+
+  return null; // No usable time today
+}
+
 /**
  * Calculate availability for a single classroom
  */
@@ -135,7 +179,7 @@ export function calculateAvailability(
     };
   }
 
-  // Check if any class is currently in session
+  // Find current class and next class
   let currentClass: ClassSchedule | null = null;
   let nextClass: ClassSchedule | null = null;
 
@@ -155,6 +199,10 @@ export function calculateAvailability(
   // If currently in class
   if (currentClass) {
     const endsAt = parseTimeToday(currentClass.end_time, now);
+
+    // Find when room will actually be usable (>= 30 min gap)
+    const nextUsableTime = findNextUsableTime(schedules, endsAt, buildingStatus.closesAt);
+
     return {
       classroom,
       isAvailable: false,
@@ -163,23 +211,41 @@ export function calculateAvailability(
       nextClassStartsAt: nextClass ? parseTimeToday(nextClass.start_time, now) : null,
       currentClassEndsAt: endsAt,
       minutesUntilNextClass: null,
-      statusText: formatTimeUntil(endsAt, 'Available at'),
+      statusText: nextUsableTime
+        ? formatTimeUntil(nextUsableTime, 'Free at')
+        : 'Busy all day',
     };
   }
 
-  // Room is available
+  // Room not currently in class - check gap to next class
   if (nextClass) {
     const nextStartTime = parseTimeToday(nextClass.start_time, now);
     const minutesUntil = Math.floor((nextStartTime.getTime() - now.getTime()) / 60000);
 
-    // If less than 30 minutes until next class, mark as limited
-    const status: AvailabilityStatus = minutesUntil < 30 ? 'limited' : 'open';
+    // Only consider available if >= 30 minutes until next class
+    if (minutesUntil < MIN_USABLE_MINUTES) {
+      // Find when room will actually be usable
+      const nextUsableTime = findNextUsableTime(schedules, now, buildingStatus.closesAt);
+
+      return {
+        classroom,
+        isAvailable: false,
+        isBuildingOpen: true,
+        status: 'limited',
+        nextClassStartsAt: nextStartTime,
+        currentClassEndsAt: null,
+        minutesUntilNextClass: minutesUntil,
+        statusText: nextUsableTime
+          ? formatTimeUntil(nextUsableTime, 'Free at')
+          : 'Busy all day',
+      };
+    }
 
     return {
       classroom,
       isAvailable: true,
       isBuildingOpen: true,
-      status,
+      status: 'open',
       nextClassStartsAt: nextStartTime,
       currentClassEndsAt: null,
       minutesUntilNextClass: minutesUntil,
@@ -196,7 +262,7 @@ export function calculateAvailability(
     nextClassStartsAt: null,
     currentClassEndsAt: null,
     minutesUntilNextClass: null,
-    statusText: 'Available all day',
+    statusText: 'Free all day',
   };
 }
 

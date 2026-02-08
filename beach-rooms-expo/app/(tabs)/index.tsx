@@ -1,23 +1,167 @@
 import { Ionicons } from '@expo/vector-icons';
-import { ScrollView, StyleSheet, TouchableOpacity, View } from 'react-native';
+import { useState, useMemo } from 'react';
+import {
+  ActivityIndicator,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  TextInput,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { RoomCard } from '@/components/room-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useClassrooms } from '@/hooks/use-classrooms';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
-// Mock data for available rooms
-const MOCK_ROOMS = [
-  { id: '1', building: 'VEC', room: '330', available: true, capacity: 40 },
-  { id: '2', building: 'ECS', room: '302', available: true, capacity: 35 },
-  { id: '3', building: 'LA5', room: '101', available: true, capacity: 60 },
-  { id: '4', building: 'HC', room: '120', available: false, capacity: 25 },
-];
+const INITIAL_OCCUPIED_LIMIT = 3;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const tintColor = useThemeColor({}, 'tint');
   const iconColor = useThemeColor({}, 'icon');
+  const textColor = useThemeColor({}, 'text');
+
+  const { availableRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms();
+  const [showAllOccupied, setShowAllOccupied] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+
+  // Filter rooms based on search query
+  const filteredAvailable = useMemo(() => {
+    if (!searchQuery.trim()) return availableRooms;
+    const query = searchQuery.toLowerCase();
+    return availableRooms.filter(
+      (room) =>
+        room.classroom.building.code.toLowerCase().includes(query) ||
+        room.classroom.room_number.toLowerCase().includes(query) ||
+        `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
+    );
+  }, [availableRooms, searchQuery]);
+
+  const filteredOccupied = useMemo(() => {
+    if (!searchQuery.trim()) return occupiedRooms;
+    const query = searchQuery.toLowerCase();
+    return occupiedRooms.filter(
+      (room) =>
+        room.classroom.building.code.toLowerCase().includes(query) ||
+        room.classroom.room_number.toLowerCase().includes(query) ||
+        `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
+    );
+  }, [occupiedRooms, searchQuery]);
+
+  const displayedOccupied = showAllOccupied
+    ? filteredOccupied
+    : filteredOccupied.slice(0, INITIAL_OCCUPIED_LIMIT);
+
+  const handleRefresh = async () => {
+    setRefreshing(true);
+    await refetch();
+    setRefreshing(false);
+  };
+
+  const renderContent = () => {
+    if (isLoading && !refreshing) {
+      return (
+        <View style={styles.centerContent}>
+          <ActivityIndicator size="large" color={tintColor} />
+          <ThemedText style={[styles.loadingText, { color: iconColor }]}>
+            Finding available rooms...
+          </ThemedText>
+        </View>
+      );
+    }
+
+    if (error) {
+      return (
+        <View style={styles.centerContent}>
+          <Ionicons name="alert-circle-outline" size={48} color="#dc3545" />
+          <ThemedText style={styles.errorText}>{error}</ThemedText>
+          <TouchableOpacity
+            style={[styles.retryButton, { backgroundColor: tintColor }]}
+            onPress={refetch}
+          >
+            <ThemedText style={styles.retryButtonText}>Try Again</ThemedText>
+          </TouchableOpacity>
+        </View>
+      );
+    }
+
+    return (
+      <ScrollView
+        style={styles.roomList}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl
+            refreshing={refreshing}
+            onRefresh={handleRefresh}
+            tintColor={tintColor}
+            colors={[tintColor]}
+          />
+        }
+      >
+        {/* Available Rooms Section */}
+        <View style={styles.sectionHeader}>
+          <ThemedText type="subtitle">Available Now</ThemedText>
+          <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
+            {filteredAvailable.length} rooms
+          </ThemedText>
+        </View>
+
+        {filteredAvailable.length === 0 ? (
+          <View style={styles.emptySection}>
+            <ThemedText style={{ color: iconColor }}>
+              {searchQuery ? 'No matching rooms found' : 'No rooms available right now'}
+            </ThemedText>
+          </View>
+        ) : (
+          filteredAvailable.map((room) => (
+            <RoomCard key={room.classroom.id} availability={room} />
+          ))
+        )}
+
+        {/* Occupied Rooms Section */}
+        {filteredOccupied.length > 0 && (
+          <>
+            <View style={[styles.sectionHeader, styles.occupiedHeader]}>
+              <ThemedText type="subtitle">Currently Occupied</ThemedText>
+              <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
+                {filteredOccupied.length} rooms
+              </ThemedText>
+            </View>
+
+            {displayedOccupied.map((room) => (
+              <RoomCard key={room.classroom.id} availability={room} />
+            ))}
+
+            {filteredOccupied.length > INITIAL_OCCUPIED_LIMIT && (
+              <TouchableOpacity
+                style={[styles.showMoreButton, { borderColor: iconColor }]}
+                onPress={() => setShowAllOccupied(!showAllOccupied)}
+              >
+                <ThemedText style={[styles.showMoreText, { color: tintColor }]}>
+                  {showAllOccupied
+                    ? 'Show Less'
+                    : `Show ${filteredOccupied.length - INITIAL_OCCUPIED_LIMIT} More`}
+                </ThemedText>
+                <Ionicons
+                  name={showAllOccupied ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={tintColor}
+                />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+
+        {/* Bottom spacing */}
+        <View style={{ height: 20 }} />
+      </ScrollView>
+    );
+  };
 
   return (
     <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
@@ -28,18 +172,29 @@ export default function HomeScreen() {
       </View>
 
       {/* Search Bar */}
-      <TouchableOpacity style={[styles.searchBar, { borderColor: iconColor }]}>
+      <View style={[styles.searchBar, { borderColor: iconColor }]}>
         <Ionicons name="search" size={20} color={iconColor} />
-        <ThemedText style={[styles.searchText, { color: iconColor }]}>
-          Search buildings or rooms...
-        </ThemedText>
-      </TouchableOpacity>
+        <TextInput
+          style={[styles.searchInput, { color: textColor }]}
+          placeholder="Search buildings or rooms..."
+          placeholderTextColor={iconColor}
+          value={searchQuery}
+          onChangeText={setSearchQuery}
+          autoCapitalize="none"
+          autoCorrect={false}
+        />
+        {searchQuery.length > 0 && (
+          <TouchableOpacity onPress={() => setSearchQuery('')}>
+            <Ionicons name="close-circle" size={20} color={iconColor} />
+          </TouchableOpacity>
+        )}
+      </View>
 
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
         <View style={[styles.statCard, { backgroundColor: tintColor }]}>
           <ThemedText style={styles.statNumber} lightColor="#fff" darkColor="#fff">
-            {MOCK_ROOMS.filter((r) => r.available).length}
+            {availableRooms.length}
           </ThemedText>
           <ThemedText style={styles.statLabel} lightColor="#fff" darkColor="#fff">
             Available Now
@@ -47,7 +202,7 @@ export default function HomeScreen() {
         </View>
         <View style={[styles.statCard, { backgroundColor: '#6c757d' }]}>
           <ThemedText style={styles.statNumber} lightColor="#fff" darkColor="#fff">
-            {MOCK_ROOMS.length}
+            {availableRooms.length + occupiedRooms.length}
           </ThemedText>
           <ThemedText style={styles.statLabel} lightColor="#fff" darkColor="#fff">
             Total Rooms
@@ -55,26 +210,8 @@ export default function HomeScreen() {
         </View>
       </View>
 
-      {/* Available Rooms List */}
-      <View style={styles.sectionHeader}>
-        <ThemedText type="subtitle">Available Now</ThemedText>
-      </View>
-
-      <ScrollView style={styles.roomList} showsVerticalScrollIndicator={false}>
-        {MOCK_ROOMS.filter((room) => room.available).map((room) => (
-          <TouchableOpacity key={room.id} style={styles.roomCard}>
-            <View style={styles.roomInfo}>
-              <ThemedText type="defaultSemiBold">
-                {room.building} {room.room}
-              </ThemedText>
-              <ThemedText style={{ color: iconColor }}>Capacity: {room.capacity}</ThemedText>
-            </View>
-            <View style={[styles.availableBadge, { backgroundColor: '#28a745' }]}>
-              <ThemedText style={styles.badgeText}>Open</ThemedText>
-            </View>
-          </TouchableOpacity>
-        ))}
-      </ScrollView>
+      {/* Content */}
+      {renderContent()}
     </ThemedView>
   );
 }
@@ -82,11 +219,11 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    paddingHorizontal: 20,
+    paddingHorizontal: 16,
   },
   header: {
-    marginTop: 20,
-    marginBottom: 24,
+    marginTop: 16,
+    marginBottom: 16,
   },
   subtitle: {
     marginTop: 4,
@@ -97,18 +234,20 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     borderWidth: 1,
     borderRadius: 12,
-    paddingHorizontal: 16,
-    paddingVertical: 12,
-    gap: 12,
-    marginBottom: 24,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    gap: 10,
+    marginBottom: 16,
   },
-  searchText: {
+  searchInput: {
     flex: 1,
+    fontSize: 16,
+    paddingVertical: 0,
   },
   statsContainer: {
     flexDirection: 'row',
     gap: 12,
-    marginBottom: 24,
+    marginBottom: 16,
   },
   statCard: {
     flex: 1,
@@ -124,33 +263,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     marginTop: 4,
   },
-  sectionHeader: {
-    marginBottom: 12,
-  },
   roomList: {
     flex: 1,
   },
-  roomCard: {
+  sectionHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 16,
-    paddingHorizontal: 16,
-    borderRadius: 12,
-    backgroundColor: 'rgba(128, 128, 128, 0.1)',
+    alignItems: 'center',
     marginBottom: 12,
   },
-  roomInfo: {
-    gap: 4,
+  sectionCount: {
+    fontSize: 14,
   },
-  availableBadge: {
-    paddingHorizontal: 12,
-    paddingVertical: 6,
+  occupiedHeader: {
+    marginTop: 24,
+  },
+  emptySection: {
+    paddingVertical: 24,
+    alignItems: 'center',
+  },
+  centerContent: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    gap: 12,
+  },
+  loadingText: {
+    marginTop: 8,
+  },
+  errorText: {
+    textAlign: 'center',
+    marginTop: 8,
+    marginHorizontal: 32,
+  },
+  retryButton: {
+    marginTop: 16,
+    paddingHorizontal: 24,
+    paddingVertical: 12,
     borderRadius: 8,
   },
-  badgeText: {
+  retryButtonText: {
     color: '#fff',
-    fontSize: 14,
     fontWeight: '600',
+  },
+  showMoreButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderRadius: 8,
+    gap: 4,
+  },
+  showMoreText: {
+    fontWeight: '500',
   },
 });

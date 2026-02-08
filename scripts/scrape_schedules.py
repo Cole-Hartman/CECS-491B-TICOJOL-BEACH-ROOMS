@@ -327,6 +327,71 @@ def process_sections(supabase_client, sections: list[dict], dry_run: bool = Fals
     return inserted_count, skipped_count
 
 
+def calculate_building_hours(supabase_client):
+    """
+    Calculate and update building hours based on class schedules.
+    Assumes building opens at the first class and closes at the last class.
+    Only calculates weekday hours (weekends assumed closed).
+    """
+
+    print("\nCalculating building hours from class schedules...")
+
+    # Get all classrooms with their building_id
+    classrooms = supabase_client.table("classrooms").select("id, building_id").limit(10000).execute()
+    classroom_to_building = {c["id"]: c["building_id"] for c in classrooms.data}
+    print(f"  Found {len(classrooms.data)} classrooms")
+
+    # Get all schedules using pagination (Supabase has 1000 row max per request)
+    all_schedules = []
+    page_size = 1000
+    offset = 0
+    while True:
+        batch = supabase_client.table("class_schedules").select("*").range(offset, offset + page_size - 1).execute()
+        all_schedules.extend(batch.data)
+        if len(batch.data) < page_size:
+            break
+        offset += page_size
+    print(f"  Found {len(all_schedules)} schedules")
+
+    # Group weekday schedules by building (days 1-5 are Mon-Fri)
+    building_hours = {}  # {building_id: {min, max}}
+
+    for schedule in all_schedules:
+        building_id = classroom_to_building.get(schedule["classroom_id"])
+        if not building_id:
+            continue
+
+        day = schedule["day_of_week"]
+        # Skip weekends (0=Sunday, 6=Saturday)
+        if day == 0 or day == 6:
+            continue
+
+        if building_id not in building_hours:
+            building_hours[building_id] = {"min": None, "max": None}
+
+        start = schedule["start_time"]
+        end = schedule["end_time"]
+
+        hours = building_hours[building_id]
+        if hours["min"] is None or start < hours["min"]:
+            hours["min"] = start
+        if hours["max"] is None or end > hours["max"]:
+            hours["max"] = end
+
+    # Update buildings table
+    updated_count = 0
+    for building_id, hours in building_hours.items():
+        if hours["min"]:
+            update_data = {
+                "weekday_open": hours["min"],
+                "weekday_close": hours["max"],
+            }
+            supabase_client.table("buildings").update(update_data).eq("id", building_id).execute()
+            updated_count += 1
+
+    print(f"  Updated hours for {updated_count} buildings")
+
+
 def main():
     parser = argparse.ArgumentParser(description="Scrape CSULB class schedules")
     parser.add_argument(
@@ -387,5 +452,10 @@ def main():
     print(f"\nDone!")
     print(f"  Schedule rows {'would insert' if args.dry_run else 'inserted'}: {inserted}")
     print(f"  Sections skipped (online/TBA/unknown): {skipped}")
+
+    # Calculate and update building hours from inserted schedules
+    if not args.dry_run:
+        calculate_building_hours(supabase_client)
+
 
 main()

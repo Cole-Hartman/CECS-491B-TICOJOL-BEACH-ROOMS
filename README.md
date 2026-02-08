@@ -4,6 +4,12 @@ BeachRooms is a **student-built mobile app** that helps **CSULB students find em
 
 ### [Project EPIC](https://github.com/Cole-Hartman/CECS-491B-TICOJOL-BEACH-ROOMS/issues/2)
 
+## 🗄️ Data Collection 
+
+The **schedule scraper** is a core component of BeachRooms—it's how we get reliable, consistent data about classroom availability.
+
+See [docs/SCRAPER.md](docs/SCRAPER.md).
+
 ---
 
 ## 🎯 Purpose

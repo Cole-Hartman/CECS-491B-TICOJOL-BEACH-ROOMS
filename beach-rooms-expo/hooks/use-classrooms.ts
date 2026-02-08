@@ -49,18 +49,31 @@ export function useClassrooms(): UseClassroomsResult {
         throw new Error(classroomsError.message);
       }
 
-      // Fetch today's schedules
-      const { data: schedulesData, error: schedulesError } = await supabase
-        .from('class_schedules')
-        .select('*')
-        .eq('day_of_week', dayOfWeek)
-        .eq('semester', 'Spring 2026');
+      // Fetch today's schedules with pagination (Supabase has 1000 row limit)
+      const allSchedules: ClassSchedule[] = [];
+      const pageSize = 1000;
+      let offset = 0;
+      let hasMore = true;
 
-      if (schedulesError) {
-        throw new Error(schedulesError.message);
+      while (hasMore) {
+        const { data: batch, error: schedulesError } = await supabase
+          .from('class_schedules')
+          .select('*')
+          .eq('day_of_week', dayOfWeek)
+          .eq('semester', 'Spring 2026')
+          .range(offset, offset + pageSize - 1);
+
+        if (schedulesError) {
+          throw new Error(schedulesError.message);
+        }
+
+        allSchedules.push(...(batch || []));
+        hasMore = (batch?.length || 0) === pageSize;
+        offset += pageSize;
       }
 
-      const schedules = (schedulesData || []) as ClassSchedule[];
+      const schedules = allSchedules as ClassSchedule[];
+      console.log(`Fetched ${schedules.length} schedules for day ${dayOfWeek}`);
 
       // Calculate availability for each classroom
       const classroomsWithAvailability = (classroomsData || [])

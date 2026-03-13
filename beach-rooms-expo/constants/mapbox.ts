@@ -2,8 +2,8 @@ export const MAPBOX_ACCESS_TOKEN =
   process.env.EXPO_PUBLIC_MAPBOX_ACCESS_TOKEN ?? '';
 
 // CSULB campus center coordinates [longitude, latitude]
-export const CSULB_CENTER: [number, number] = [-118.1141, 33.7838];
-export const CSULB_DEFAULT_ZOOM = 15.5;
+export const CSULB_CENTER: [number, number] = [-118.116491, 33.780516];
+export const CSULB_DEFAULT_ZOOM = 16;
 
 // Bounding box for offline tile pack (slightly larger than campus)
 export const CSULB_BOUNDS = {

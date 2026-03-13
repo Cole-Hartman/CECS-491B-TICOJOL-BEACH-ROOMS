@@ -99,6 +99,7 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
+        scaleBarEnabled={false}
         pitchEnabled={true}
         rotateEnabled={true}
         onDidFinishLoadingMap={hidePOILabels}
@@ -107,8 +108,8 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
           defaultSettings={{
             centerCoordinate: CSULB_CENTER,
             zoomLevel: CSULB_DEFAULT_ZOOM,
-            pitch: 45,
-            heading: -17,
+            pitch: 32,
+            heading: 0,
           }}
           minZoomLevel={14}
           maxZoomLevel={18}
@@ -126,7 +127,7 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
           filter={['==', 'extrude', 'true']}
           minZoomLevel={14}
           style={{
-            fillExtrusionColor: '#aaa',
+            fillExtrusionColor: 'hsl(40, 43%, 93%)',
             fillExtrusionHeight: ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'height']],
             fillExtrusionBase: ['interpolate', ['linear'], ['zoom'], 14, 0, 14.5, ['get', 'min_height']],
             fillExtrusionOpacity: 0.6,
@@ -147,17 +148,18 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
                           'interpolate',
                           ['linear'],
                           ['zoom'],
-                          13, 4,  // At zoom level 13 (zoomed out), radius is 4
-                          18, 12, // At zoom level 18 (zoomed in), radius is 12
+                          13, 6,  // At zoom level 13 (zoomed out), radius is 6
+                          18, 16, // At zoom level 18 (zoomed in), radius is 16
                       ],
                       circleBlur: 1.5,
-                      circleOpacity: 0.6,
+                      circleOpacity: 0.7,
                       circleColor: [
                           'case',
                           ['get', 'hasAvailableRoom'],
-                          '#22c55e',
+                          '#00ff66',
                           '#ef4444',
                       ],
+                      circlePitchAlignment: 'map',
                   }}
               />
 
@@ -170,15 +172,16 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
                           'interpolate',
                           ['linear'],
                           ['zoom'],
-                          13, 2,   // At zoom level 13, radius is 2
-                          18, 4.5, // At zoom level 18, radius is 4.5
+                          13, 3,   // At zoom level 13, radius is 3
+                          18, 6,   // At zoom level 18, radius is 6
                       ],
                       circleColor: [
                           'case',
                           ['get', 'hasAvailableRoom'],
-                          '#4ade80',
+                          '#39ff78',
                           '#ef4444',
                       ],
+                      circlePitchAlignment: 'map',
                   }}
               />
 

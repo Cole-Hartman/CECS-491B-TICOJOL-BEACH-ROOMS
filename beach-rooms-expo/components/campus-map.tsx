@@ -2,10 +2,6 @@ import { useEffect, useMemo, useRef } from 'react';
 import { Image, StyleSheet, View } from 'react-native';
 import MapboxGL, { MapView } from '@rnmapbox/maps';
 import type { FeatureCollection, Point } from 'geojson';
-
-const pinGreen = Image.resolveAssetSource(require('@/assets/images/pin-green.png'));
-const pinRed = Image.resolveAssetSource(require('@/assets/images/pin-red.png'));
-
 import {
   MAPBOX_ACCESS_TOKEN,
   CSULB_CENTER,
@@ -13,6 +9,9 @@ import {
   CSULB_BOUNDS,
 } from '@/constants/mapbox';
 import type { BuildingPin } from '@/hooks/use-building-pins';
+
+const pinGreen = Image.resolveAssetSource(require('@/assets/images/pin-green.png'));
+const pinRed = Image.resolveAssetSource(require('@/assets/images/pin-red.png'));
 
 MapboxGL.setAccessToken(MAPBOX_ACCESS_TOKEN);
 
@@ -26,6 +25,8 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
   useEffect(() => {
     const downloadOfflinePack = async () => {
       try {
+        const existing = await MapboxGL.offlineManager.getPack('csulb-campus');
+        if (existing) return;
         await MapboxGL.offlineManager.createPack(
           {
             name: 'csulb-campus',
@@ -167,7 +168,7 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
                           18, 0.4,
                       ],
                       iconAllowOverlap: true,
-                      iconPitchAlignment: 'map',
+                      iconPitchAlignment: 'viewport',
                   }}
               />
 

@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useRef } from 'react';
-import { StyleSheet, View } from 'react-native';
+import { Image, StyleSheet, View } from 'react-native';
 import MapboxGL, { MapView } from '@rnmapbox/maps';
 import type { FeatureCollection, Point } from 'geojson';
+
+const pinGreen = Image.resolveAssetSource(require('@/assets/images/pin-green.png'));
+const pinRed = Image.resolveAssetSource(require('@/assets/images/pin-red.png'));
 
 import {
   MAPBOX_ACCESS_TOKEN,
@@ -139,49 +142,32 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
               shape={geojson}
               onPress={handlePress}
           >
-              {/* Glow ring */}
-              <MapboxGL.CircleLayer
-                  id="building-glow"
-                  style={{
-                      // Interpolate radius based on zoom level
-                      circleRadius: [
-                          'interpolate',
-                          ['linear'],
-                          ['zoom'],
-                          13, 6,  // At zoom level 13 (zoomed out), radius is 6
-                          18, 16, // At zoom level 18 (zoomed in), radius is 16
-                      ],
-                      circleBlur: 1.5,
-                      circleOpacity: 0.7,
-                      circleColor: [
-                          'case',
-                          ['get', 'hasAvailableRoom'],
-                          '#00ff66',
-                          '#ef4444',
-                      ],
-                      circlePitchAlignment: 'map',
-                  }}
+              <MapboxGL.Images
+                images={{
+                  'pin-green': pinGreen,
+                  'pin-red': pinRed,
+                }}
               />
 
-              {/* Solid dot */}
-              <MapboxGL.CircleLayer
-                  id="building-dot"
+              {/* 3D pin icons */}
+              <MapboxGL.SymbolLayer
+                  id="building-pins-icon"
                   style={{
-                      // Interpolate radius based on zoom level
-                      circleRadius: [
+                      iconImage: [
+                          'case',
+                          ['get', 'hasAvailableRoom'],
+                          'pin-green',
+                          'pin-red',
+                      ],
+                      iconSize: [
                           'interpolate',
                           ['linear'],
                           ['zoom'],
-                          13, 3,   // At zoom level 13, radius is 3
-                          18, 6,   // At zoom level 18, radius is 6
+                          13, 0.15,
+                          18, 0.4,
                       ],
-                      circleColor: [
-                          'case',
-                          ['get', 'hasAvailableRoom'],
-                          '#39ff78',
-                          '#ef4444',
-                      ],
-                      circlePitchAlignment: 'map',
+                      iconAllowOverlap: true,
+                      iconPitchAlignment: 'map',
                   }}
               />
 

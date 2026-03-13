@@ -7,12 +7,11 @@ import Animated, {
   interpolate,
 } from 'react-native-reanimated';
 
-import { ThemedText } from '@/components/themed-text';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 const SCREEN_HEIGHT = Dimensions.get('window').height;
 const MAP_EXPANDED_HEIGHT = SCREEN_HEIGHT * 0.4;
-const MAP_COLLAPSED_HEIGHT = 50;
+const MAP_COLLAPSED_HEIGHT = 24;
 const SNAP_THRESHOLD = (MAP_EXPANDED_HEIGHT + MAP_COLLAPSED_HEIGHT) / 2;
 
 interface CollapsibleMapContainerProps {
@@ -60,26 +59,11 @@ export function CollapsibleMapContainer({
     ),
   }));
 
-  const animatedLabelOpacity = useAnimatedStyle(() => ({
-    opacity: interpolate(
-      mapHeight.value,
-      [MAP_COLLAPSED_HEIGHT, MAP_COLLAPSED_HEIGHT + 40],
-      [1, 0]
-    ),
-  }));
-
   return (
     <View style={styles.wrapper}>
       <Animated.View style={[styles.container, animatedContainerStyle]}>
         <Animated.View style={[styles.mapContent, animatedMapOpacity]}>
           {children}
-        </Animated.View>
-
-        <Animated.View
-          style={[styles.collapsedLabel, animatedLabelOpacity]}
-          pointerEvents="none"
-        >
-          <ThemedText style={styles.collapsedText}>Campus Map</ThemedText>
         </Animated.View>
       </Animated.View>
 
@@ -102,25 +86,15 @@ const styles = StyleSheet.create({
   mapContent: {
     ...StyleSheet.absoluteFillObject,
   },
-  collapsedLabel: {
-    ...StyleSheet.absoluteFillObject,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  collapsedText: {
-    fontSize: 14,
-    fontWeight: '600',
-    opacity: 0.7,
-  },
   handleContainer: {
-    height: 24,
+    height: 28,
     justifyContent: 'center',
     alignItems: 'center',
   },
   handle: {
-    width: 36,
-    height: 4,
-    borderRadius: 2,
-    opacity: 0.4,
+    width: 48,
+    height: 5,
+    borderRadius: 3,
+    opacity: 0.6,
   },
 });

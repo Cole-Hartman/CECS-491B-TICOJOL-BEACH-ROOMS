@@ -26,7 +26,7 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
         await MapboxGL.offlineManager.createPack(
           {
             name: 'csulb-campus',
-            styleURL: MapboxGL.StyleURL.Street,
+            styleURL: 'mapbox://styles/josephsong23/cmip4pzo400e501st3fdjay4h',
             bounds: [CSULB_BOUNDS.ne, CSULB_BOUNDS.sw],
             minZoom: 14,
             maxZoom: 18,
@@ -95,7 +95,7 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
       <MapboxGL.MapView
         ref={mapRef}
         style={styles.map}
-        styleURL={MapboxGL.StyleURL.Street}
+        styleURL="mapbox://styles/josephsong23/cmip4pzo400e501st3fdjay4h"
         logoEnabled={false}
         attributionEnabled={false}
         compassEnabled={false}
@@ -108,7 +108,7 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
           defaultSettings={{
             centerCoordinate: CSULB_CENTER,
             zoomLevel: CSULB_DEFAULT_ZOOM,
-            pitch: 32,
+            pitch: 48.46,
             heading: 0,
           }}
           minZoomLevel={14}

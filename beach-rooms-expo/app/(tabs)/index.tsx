@@ -1,5 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
   RefreshControl,
@@ -11,9 +11,12 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { CampusMap } from '@/components/campus-map';
+import { CollapsibleMapContainer } from '@/components/collapsible-map-container';
 import { RoomCard } from '@/components/room-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { useBuildingPins } from '@/hooks/use-building-pins';
 import { useClassrooms } from '@/hooks/use-classrooms';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
@@ -25,10 +28,20 @@ export default function HomeScreen() {
   const iconColor = useThemeColor({}, 'icon');
   const textColor = useThemeColor({}, 'text');
 
-  const { availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms();
+  const { classrooms, availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms();
+  const buildingPins = useBuildingPins(classrooms);
+  const scrollViewRef = useRef<ScrollView>(null);
+  const buildingYPositions = useRef<Record<string, number>>({});
   const [showAllOccupied, setShowAllOccupied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleBuildingPress = useCallback((buildingId: string) => {
+    const y = buildingYPositions.current[buildingId];
+    if (y !== undefined) {
+      scrollViewRef.current?.scrollTo({ y, animated: true });
+    }
+  }, []);
 
   // Filter rooms based on search query
   const filteredAvailable = useMemo(() => {
@@ -74,7 +87,36 @@ export default function HomeScreen() {
     setRefreshing(false);
   };
 
+  // Track which buildings we've seen so we only record Y for the first occurrence
+  const seenBuildingsRef = useRef(new Set<string>());
+
+  const renderRoomCard = (room: (typeof classrooms)[number]) => {
+    const buildingId = room.classroom.building.id;
+    const isFirst = !seenBuildingsRef.current.has(buildingId);
+    if (isFirst) {
+      seenBuildingsRef.current.add(buildingId);
+    }
+
+    return (
+      <View
+        key={room.classroom.id}
+        onLayout={
+          isFirst
+            ? (e) => {
+                buildingYPositions.current[buildingId] =
+                  e.nativeEvent.layout.y;
+              }
+            : undefined
+        }
+      >
+        <RoomCard availability={room} />
+      </View>
+    );
+  };
+
   const renderContent = () => {
+    // Reset seen buildings on each render so tracking stays current
+    seenBuildingsRef.current.clear();
     if (isLoading && !refreshing) {
       return (
         <View style={styles.centerContent}>
@@ -103,6 +145,7 @@ export default function HomeScreen() {
 
     return (
       <ScrollView
+        ref={scrollViewRef}
         style={styles.roomList}
         showsVerticalScrollIndicator={false}
         refreshControl={
@@ -129,9 +172,7 @@ export default function HomeScreen() {
             </ThemedText>
           </View>
         ) : (
-          filteredAvailable.map((room) => (
-            <RoomCard key={room.classroom.id} availability={room} />
-          ))
+          filteredAvailable.map(renderRoomCard)
         )}
 
         {/* Opening Soon Section */}
@@ -144,9 +185,7 @@ export default function HomeScreen() {
               </ThemedText>
             </View>
 
-            {filteredOpeningSoon.map((room) => (
-              <RoomCard key={room.classroom.id} availability={room} />
-            ))}
+            {filteredOpeningSoon.map(renderRoomCard)}
           </>
         )}
 
@@ -160,9 +199,7 @@ export default function HomeScreen() {
               </ThemedText>
             </View>
 
-            {displayedOccupied.map((room) => (
-              <RoomCard key={room.classroom.id} availability={room} />
-            ))}
+            {displayedOccupied.map(renderRoomCard)}
 
             {filteredOccupied.length > INITIAL_OCCUPIED_LIMIT && (
               <TouchableOpacity
@@ -191,63 +228,59 @@ export default function HomeScreen() {
   };
 
   return (
-    <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
-      {/* Header */}
-      <View style={styles.header}>
-        <ThemedText type="title">
-          <ThemedText type="title" style={{ color: '#EBA920' }}>Beach</ThemedText>
-          Rooms
-        </ThemedText>
-        <ThemedText style={styles.subtitle}>Find empty classrooms at CSULB</ThemedText>
+    <ThemedView style={styles.container}>
+      {/* Campus Map — full width at the very top */}
+      <View style={{ paddingTop: insets.top }}>
+        <CollapsibleMapContainer>
+          <CampusMap
+            buildingPins={buildingPins}
+            onBuildingPress={handleBuildingPress}
+          />
+        </CollapsibleMapContainer>
       </View>
 
-      {/* Search Bar */}
-      <View style={[styles.searchBar, { borderColor: iconColor }]}>
-        <Ionicons name="search" size={20} color={iconColor} />
-        <TextInput
-          style={[styles.searchInput, { color: textColor }]}
-          placeholder="Search buildings or rooms..."
-          placeholderTextColor={iconColor}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          autoCapitalize="none"
-          autoCorrect={false}
-        />
-        {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
-            <Ionicons name="close-circle" size={20} color={iconColor} />
-          </TouchableOpacity>
-        )}
-      </View>
-
-      {/* Quick Stats */}
-      <View style={styles.statsContainer}>
-        <View style={[styles.statCard, styles.availableCard]}>
-          <ThemedText style={styles.statNumber} darkColor="#fff">
-            {availableRooms.length}
+      {/* Rest of content with horizontal padding */}
+      <View style={styles.contentPadding}>
+        {/* Header */}
+        <View style={styles.header}>
+          <ThemedText type="title">
+            <ThemedText type="title" style={{ color: '#EBA920' }}>Beach</ThemedText>
+            Rooms
           </ThemedText>
-          <ThemedText style={styles.statLabel} darkColor="rgba(255,255,255,0.85)">
-            Available Now
-          </ThemedText>
+          <ThemedText style={styles.subtitle}>Find empty classrooms at CSULB</ThemedText>
         </View>
-        <View style={[styles.statCard, styles.totalCard]}>
-          <ThemedText style={styles.statNumber} darkColor="#fff">
-            {availableRooms.length + occupiedRooms.length}
-          </ThemedText>
-          <ThemedText style={styles.statLabel} darkColor="rgba(255,255,255,0.85)">
-            Total Rooms
-          </ThemedText>
-        </View>
-      </View>
 
-      {/* Content */}
-      {renderContent()}
+        {/* Search Bar */}
+        <View style={[styles.searchBar, { borderColor: iconColor }]}>
+          <Ionicons name="search" size={20} color={iconColor} />
+          <TextInput
+            style={[styles.searchInput, { color: textColor }]}
+            placeholder="Search buildings or rooms..."
+            placeholderTextColor={iconColor}
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+            autoCapitalize="none"
+            autoCorrect={false}
+          />
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={() => setSearchQuery('')}>
+              <Ionicons name="close-circle" size={20} color={iconColor} />
+            </TouchableOpacity>
+          )}
+        </View>
+
+        {/* Content */}
+        {renderContent()}
+      </View>
     </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
   container: {
+    flex: 1,
+  },
+  contentPadding: {
     flex: 1,
     paddingHorizontal: 16,
   },
@@ -273,34 +306,6 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
-  },
-  statsContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 16,
-  },
-  statCard: {
-    flex: 1,
-    borderRadius: 16,
-    paddingVertical: 18,
-    paddingHorizontal: 16,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  availableCard: {
-    backgroundColor: '#EBA920',
-  },
-  totalCard: {
-    backgroundColor: '#5a6268',
-  },
-  statNumber: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    paddingTop: 10,
-  },
-  statLabel: {
-    fontSize: 13,
-    marginTop: 6,
   },
   roomList: {
     flex: 1,

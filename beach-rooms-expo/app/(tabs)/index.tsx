@@ -100,6 +100,7 @@ export default function HomeScreen() {
     return openingSoonRooms.filter(
       (room) =>
         room.classroom.building.code.toLowerCase().includes(query) ||
+        room.classroom.building.name.toLowerCase().includes(query) ||
         room.classroom.room_number.toLowerCase().includes(query) ||
         `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
     );
@@ -111,6 +112,7 @@ export default function HomeScreen() {
     return occupiedRooms.filter(
       (room) =>
         room.classroom.building.code.toLowerCase().includes(query) ||
+        room.classroom.building.name.toLowerCase().includes(query) ||
         room.classroom.room_number.toLowerCase().includes(query) ||
         `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
     );

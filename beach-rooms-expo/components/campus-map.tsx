@@ -150,7 +150,7 @@ export function CampusMap({ buildingPins, onBuildingPress }: CampusMapProps) {
                 }}
               />
 
-              {/* 3D pin icons */}
+              {/* Pin icons */}
               <MapboxGL.SymbolLayer
                   id="building-pins-icon"
                   style={{

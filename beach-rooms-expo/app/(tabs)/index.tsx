@@ -2,9 +2,13 @@ import { Ionicons } from '@expo/vector-icons';
 import { useState, useMemo, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
+  Modal,
+  Pressable,
   RefreshControl,
   ScrollView,
   StyleSheet,
+  Switch,
   TextInput,
   TouchableOpacity,
   View,
@@ -27,6 +31,16 @@ export default function HomeScreen() {
   const tintColor = useThemeColor({}, 'tint');
   const iconColor = useThemeColor({}, 'icon');
   const textColor = useThemeColor({}, 'text');
+  const popoverBg = useThemeColor({ light: '#ffffff', dark: '#1f2123' }, 'background');
+  const popoverText = useThemeColor({}, 'text');
+  const dividerColor = useThemeColor(
+    { light: 'rgba(0,0,0,0.12)', dark: 'rgba(255,255,255,0.12)' },
+    'text'
+  );
+  const overlayColor = useThemeColor(
+    { light: 'rgba(0,0,0,0.15)', dark: 'rgba(0,0,0,0.45)' },
+    'background'
+  );
 
   const { classrooms, availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms();
   const buildingPins = useBuildingPins(classrooms);
@@ -35,6 +49,44 @@ export default function HomeScreen() {
   const [showAllOccupied, setShowAllOccupied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [hideMap, setHideMap] = useState(false);
+  const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
+  const gearButtonRef = useRef<View>(null);
+
+  const openSettingsPopover = () => {
+    const node = gearButtonRef.current;
+    if (!node) {
+      setSettingsOpen(true);
+      setPopoverTopRight({ top: insets.top + 56, right: 16 });
+      return;
+    }
+
+    node.measureInWindow((x, y, width, height) => {
+      const windowWidth = Dimensions.get('window').width;
+      const right = Math.max(12, windowWidth - (x + width));
+      const top = y + height + 8;
+      setPopoverTopRight({ top, right });
+      setSettingsOpen(true);
+    });
+  };
+
+  const toggleSettingsPopover = () => {
+    if (settingsOpen) {
+      setSettingsOpen(false);
+      return;
+    }
+    openSettingsPopover();
+  };
+
+  const usageBullets = [
+    "Availability based on official class times only",
+    "Rooms may be booked by clubs or meetings",
+    "Hours vary during finals week",
+    "Keep the rooms tidy",
+    "Maintain a respectful noise level to avoid disrupting classes",
+    "Classroom access is a privilege. Rooms may be locked by the school if used improperly",
+  ];
 
   const handleBuildingPress = useCallback((buildingId: string) => {
     const y = buildingYPositions.current[buildingId];
@@ -50,6 +102,7 @@ export default function HomeScreen() {
     return availableRooms.filter(
       (room) =>
         room.classroom.building.code.toLowerCase().includes(query) ||
+        (room.classroom.building.name && room.classroom.building.name.toLowerCase().includes(query)) ||
         room.classroom.room_number.toLowerCase().includes(query) ||
         `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
     );
@@ -61,6 +114,7 @@ export default function HomeScreen() {
     return openingSoonRooms.filter(
       (room) =>
         room.classroom.building.code.toLowerCase().includes(query) ||
+        (room.classroom.building.name && room.classroom.building.name.toLowerCase().includes(query)) ||
         room.classroom.room_number.toLowerCase().includes(query) ||
         `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
     );
@@ -72,6 +126,7 @@ export default function HomeScreen() {
     return occupiedRooms.filter(
       (room) =>
         room.classroom.building.code.toLowerCase().includes(query) ||
+        (room.classroom.building.name && room.classroom.building.name.toLowerCase().includes(query)) ||
         room.classroom.room_number.toLowerCase().includes(query) ||
         `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
     );
@@ -230,24 +285,89 @@ export default function HomeScreen() {
   return (
     <ThemedView style={styles.container}>
       {/* Campus Map — full width at the very top */}
-      <View style={{ paddingTop: insets.top }}>
-        <CollapsibleMapContainer>
-          <CampusMap
-            buildingPins={buildingPins}
-            onBuildingPress={handleBuildingPress}
-          />
-        </CollapsibleMapContainer>
-      </View>
+      {!hideMap && (
+        <View style={{ paddingTop: insets.top }}>
+          <CollapsibleMapContainer>
+            <CampusMap
+              buildingPins={buildingPins}
+              onBuildingPress={handleBuildingPress}
+            />
+          </CollapsibleMapContainer>
+        </View>
+      )}
+
+      {/* Settings Modal */}
+      <Modal
+        transparent
+        visible={settingsOpen}
+        animationType="fade"
+        onRequestClose={() => setSettingsOpen(false)}
+      >
+        <Pressable
+          style={[styles.modalOverlay, { backgroundColor: overlayColor }]}
+          onPress={() => setSettingsOpen(false)}
+        >
+          <Pressable
+            onPress={() => {}}
+            style={[
+              styles.settingsPopover,
+              { backgroundColor: popoverBg },
+              popoverTopRight ? { top: popoverTopRight.top, right: popoverTopRight.right } : null,
+            ]}
+          >
+            <View style={styles.settingsRow}>
+              <View style={styles.settingsRowLeft}>
+                <Ionicons name="map-outline" size={18} color={iconColor} />
+                <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>Hide Map</ThemedText>
+              </View>
+              <Switch
+                value={hideMap}
+                onValueChange={setHideMap}
+                trackColor={{ false: dividerColor, true: tintColor }}
+                thumbColor="#ffffff"
+                ios_backgroundColor={dividerColor}
+              />
+            </View>
+
+            <View style={[styles.settingsDivider, { backgroundColor: dividerColor }]} />
+
+            <View style={styles.usageSection}>
+              <ThemedText style={[styles.settingsSectionTitle, { color: popoverText }]}>
+                Usage &amp; Etiquette:
+              </ThemedText>
+              {usageBullets.map((text) => (
+                <View key={text} style={styles.bulletRow}>
+                  <ThemedText style={[styles.bulletDot, { color: iconColor }]}>•</ThemedText>
+                  <ThemedText style={[styles.bulletText, { color: iconColor }]}>{text}</ThemedText>
+                </View>
+              ))}
+            </View>
+          </Pressable>
+        </Pressable>
+      </Modal>
 
       {/* Rest of content with horizontal padding */}
-      <View style={styles.contentPadding}>
+      <View style={[styles.contentPadding, hideMap && { paddingTop: insets.top }]}>
         {/* Header */}
-        <View style={styles.header}>
-          <ThemedText type="title">
-            <ThemedText type="title" style={{ color: '#EBA920' }}>Beach</ThemedText>
-            Rooms
-          </ThemedText>
-          <ThemedText style={styles.subtitle}>Find empty classrooms at CSULB</ThemedText>
+        <View style={styles.headerRow}>
+          <View style={styles.headerLeft}>
+            <ThemedText type="title">
+              <ThemedText type="title" style={{ color: '#EBA920' }}>Beach</ThemedText>
+              Rooms
+            </ThemedText>
+            <ThemedText style={styles.subtitle}>Find empty classrooms at CSULB</ThemedText>
+          </View>
+
+          <TouchableOpacity
+            ref={gearButtonRef}
+            style={styles.headerIconButton}
+            onPress={toggleSettingsPopover}
+            hitSlop={10}
+            accessibilityRole="button"
+            accessibilityLabel="Open settings"
+          >
+            <Ionicons name="settings-outline" size={22} color={iconColor} />
+          </TouchableOpacity>
         </View>
 
         {/* Search Bar */}
@@ -284,9 +404,79 @@ const styles = StyleSheet.create({
     flex: 1,
     paddingHorizontal: 16,
   },
-  header: {
+  headerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
     marginTop: 16,
     marginBottom: 16,
+  },
+  headerLeft: {
+    flex: 1,
+    paddingRight: 12,
+  },
+  headerIconButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalOverlay: {
+    flex: 1,
+  },
+  settingsPopover: {
+    position: 'absolute',
+    width: 290,
+    borderRadius: 14,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    shadowColor: '#000',
+    shadowOpacity: 0.18,
+    shadowRadius: 18,
+    shadowOffset: { width: 0, height: 8 },
+    elevation: 8,
+  },
+  settingsRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
+  },
+  settingsRowLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  settingsRowLabel: {
+    fontSize: 15,
+    fontWeight: '600',
+  },
+  settingsDivider: {
+    height: 1,
+    marginVertical: 10,
+  },
+  settingsSectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    marginBottom: 6,
+  },
+  usageSection: {
+    paddingHorizontal: 6,
+  },
+  bulletRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    paddingVertical: 3,
+  },
+  bulletDot: {
+    lineHeight: 18,
+  },
+  bulletText: {
+    flex: 1,
+    lineHeight: 18,
+    fontSize: 13,
   },
   subtitle: {
     marginTop: 4,

@@ -52,6 +52,7 @@ export default function HomeScreen() {
   const [searchQuery, setSearchQuery] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hideMap, setHideMap] = useState(false);
+  const [usageExpanded, setUsageExpanded] = useState(false);
   const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
   const settingsButtonRef = useRef<View>(null);
 
@@ -373,17 +374,31 @@ export default function HomeScreen() {
 
               <View style={[styles.settingsDivider, { backgroundColor: dividerColor }]} />
 
-              <View style={styles.usageSection}>
-                <ThemedText style={[styles.settingsSectionTitle, { color: popoverText }]}>
-                  Usage &amp; Etiquette:
-                </ThemedText>
-                {usageBullets.map((text) => (
-                  <View key={text} style={styles.bulletRow}>
-                    <ThemedText style={[styles.bulletDot, { color: iconColor }]}>•</ThemedText>
-                    <ThemedText style={[styles.bulletText, { color: iconColor }]}>{text}</ThemedText>
-                  </View>
-                ))}
-              </View>
+              <TouchableOpacity
+                style={styles.usageToggle}
+                onPress={() => setUsageExpanded(!usageExpanded)}
+              >
+                <View style={styles.settingsRowLeft}>
+                  <Ionicons name="information-circle-outline" size={18} color={iconColor} />
+                  <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>Usage &amp; Etiquette</ThemedText>
+                </View>
+                <Ionicons
+                  name={usageExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={iconColor}
+                />
+              </TouchableOpacity>
+
+              {usageExpanded && (
+                <View style={styles.usageSection}>
+                  {usageBullets.map((text) => (
+                    <View key={text} style={styles.bulletRow}>
+                      <ThemedText style={[styles.bulletDot, { color: iconColor }]}>•</ThemedText>
+                      <ThemedText style={[styles.bulletText, { color: iconColor }]}>{text}</ThemedText>
+                    </View>
+                  ))}
+                </View>
+              )}
             </Pressable>
           </Pressable>
         </Modal>
@@ -470,13 +485,15 @@ const styles = StyleSheet.create({
     height: 1,
     marginVertical: 10,
   },
-  settingsSectionTitle: {
-    fontSize: 14,
-    fontWeight: '700',
-    marginBottom: 6,
+  usageToggle: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 6,
   },
   usageSection: {
     paddingHorizontal: 6,
+    paddingTop: 6,
   },
   bulletRow: {
     flexDirection: 'row',

@@ -96,9 +96,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   handle: {
-    width: 48,
-    height: 5,
+    width: 56,
+    height: 6,
     borderRadius: 3,
-    opacity: 0.7,
+    opacity: 0.85,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.25,
+    shadowRadius: 2,
+    elevation: 3,
   },
 });

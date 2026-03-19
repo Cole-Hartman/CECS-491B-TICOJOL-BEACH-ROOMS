@@ -127,8 +127,8 @@ export function CampusMap({ buildingPins, focusBuildingId, onBuildingPress }: Ca
           defaultSettings={{
             centerCoordinate: CSULB_CENTER,
             zoomLevel: CSULB_DEFAULT_ZOOM,
-            pitch: 48.46,
-            heading: 0,
+            pitch: 59.00,
+            heading: -58.40,
           }}
           minZoomLevel={14}
           maxZoomLevel={18}

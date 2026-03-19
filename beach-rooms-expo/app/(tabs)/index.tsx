@@ -65,7 +65,7 @@ export default function HomeScreen() {
     if (settingsLoaded) {
       setColorScheme(settings.darkMode ? 'dark' : 'light');
     }
-  }, [settingsLoaded]);
+  }, [settingsLoaded, setColorScheme, settings.darkMode]);
   const [autoCenterHelpVisible, setAutoCenterHelpVisible] = useState(false);
   const [usageExpanded, setUsageExpanded] = useState(false);
   const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
@@ -357,7 +357,7 @@ export default function HomeScreen() {
 
               {autoCenterHelpVisible && (
                 <ThemedText style={[styles.autoCenterHelp, { color: iconColor }]}>
-                  When enabled, expanding a building in the list will automatically pan the map to that building's location.
+                  When enabled, expanding a building in the list will automatically pan the map to that building&apos;s location.
                 </ThemedText>
               )}
 
@@ -434,10 +434,10 @@ const styles = StyleSheet.create({
     borderBottomWidth: StyleSheet.hairlineWidth,
   },
   logoImage: {
-    height: 40,
-    width: 100,
+    height: 34,
+    width: 85,
     marginLeft: -4,
-      marginVertical: 1,
+    marginVertical: 3,
   },
   roomContent: {
     flex: 1,
@@ -447,9 +447,9 @@ const styles = StyleSheet.create({
     flex: 1,
     flexDirection: 'row',
     alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 10,
+    borderWidth: 1.5,
+    borderRadius: 24,
+    paddingHorizontal: 14,
     paddingVertical: 8,
     gap: 8,
   },
@@ -457,7 +457,7 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    borderWidth: 1,
+    borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },

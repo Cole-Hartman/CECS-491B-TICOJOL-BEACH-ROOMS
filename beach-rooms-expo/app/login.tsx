@@ -1,4 +1,4 @@
-import { StyleSheet, Text, View } from "react-native";
+import { Image, StyleSheet, Text, View } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { GoogleSignInButton } from "@/components/social-auth-buttons/google/google-sign-in-button";
 import { EmailSignIn } from "@/components/social-auth-buttons/email-sign-in";

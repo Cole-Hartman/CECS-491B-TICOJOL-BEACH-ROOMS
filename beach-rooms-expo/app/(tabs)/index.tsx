@@ -3,6 +3,7 @@ import { useState, useMemo, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
   Dimensions,
+  Image,
   Modal,
   Pressable,
   RefreshControl,
@@ -52,10 +53,10 @@ export default function HomeScreen() {
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hideMap, setHideMap] = useState(false);
   const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
-  const gearButtonRef = useRef<View>(null);
+  const settingsButtonRef = useRef<View>(null);
 
   const openSettingsPopover = () => {
-    const node = gearButtonRef.current;
+    const node = settingsButtonRef.current;
     if (!node) {
       setSettingsOpen(true);
       setPopoverTopRight({ top: insets.top + 56, right: 16 });
@@ -213,13 +214,6 @@ export default function HomeScreen() {
         }
       >
         {/* Available Rooms Section */}
-        <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle">Available Now</ThemedText>
-          <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
-            {filteredAvailable.length} rooms
-          </ThemedText>
-        </View>
-
         {filteredAvailable.length === 0 ? (
           <View style={styles.emptySection}>
             <ThemedText style={{ color: iconColor }}>
@@ -296,101 +290,108 @@ export default function HomeScreen() {
         </View>
       )}
 
-      {/* Settings Modal */}
-      <Modal
-        transparent
-        visible={settingsOpen}
-        animationType="fade"
-        onRequestClose={() => setSettingsOpen(false)}
-      >
-        <Pressable
-          style={[styles.modalOverlay, { backgroundColor: overlayColor }]}
-          onPress={() => setSettingsOpen(false)}
-        >
-          <Pressable
-            onPress={() => {}}
-            style={[
-              styles.settingsPopover,
-              { backgroundColor: popoverBg },
-              popoverTopRight ? { top: popoverTopRight.top, right: popoverTopRight.right } : null,
-            ]}
-          >
-            <View style={styles.settingsRow}>
-              <View style={styles.settingsRowLeft}>
-                <Ionicons name="map-outline" size={18} color={iconColor} />
-                <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>Hide Map</ThemedText>
-              </View>
-              <Switch
-                value={hideMap}
-                onValueChange={setHideMap}
-                trackColor={{ false: dividerColor, true: tintColor }}
-                thumbColor="#ffffff"
-                ios_backgroundColor={dividerColor}
-              />
-            </View>
-
-            <View style={[styles.settingsDivider, { backgroundColor: dividerColor }]} />
-
-            <View style={styles.usageSection}>
-              <ThemedText style={[styles.settingsSectionTitle, { color: popoverText }]}>
-                Usage &amp; Etiquette:
-              </ThemedText>
-              {usageBullets.map((text) => (
-                <View key={text} style={styles.bulletRow}>
-                  <ThemedText style={[styles.bulletDot, { color: iconColor }]}>•</ThemedText>
-                  <ThemedText style={[styles.bulletText, { color: iconColor }]}>{text}</ThemedText>
-                </View>
-              ))}
-            </View>
-          </Pressable>
-        </Pressable>
-      </Modal>
-
-      {/* Rest of content with horizontal padding */}
+      {/* Rest of content */}
       <View style={[styles.contentPadding, hideMap && { paddingTop: insets.top }]}>
-        {/* Header */}
+        {/* Header: Logo + Search + Filter in one row */}
         <View style={styles.headerRow}>
-          <View style={styles.headerLeft}>
-            <ThemedText type="title">
-              <ThemedText type="title" style={{ color: '#EBA920' }}>Beach</ThemedText>
-              Rooms
-            </ThemedText>
-            <ThemedText style={styles.subtitle}>Find empty classrooms at CSULB</ThemedText>
+          <Image
+            source={require('@/assets/images/logo.png')}
+            style={styles.logoImage}
+            resizeMode="contain"
+          />
+
+          <View style={[styles.searchBar, { borderColor: iconColor }]}>
+            <Ionicons name="search" size={18} color={iconColor} />
+            <TextInput
+              style={[styles.searchInput, { color: textColor }]}
+              placeholder="Search..."
+              placeholderTextColor={iconColor}
+              value={searchQuery}
+              onChangeText={setSearchQuery}
+              autoCapitalize="none"
+              autoCorrect={false}
+            />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <Ionicons name="close-circle" size={18} color={iconColor} />
+              </TouchableOpacity>
+            )}
           </View>
 
           <TouchableOpacity
-            ref={gearButtonRef}
-            style={styles.headerIconButton}
-            onPress={toggleSettingsPopover}
-            hitSlop={10}
+            style={[styles.iconCircle, { borderColor: iconColor }]}
+            onPress={() => {/* TODO: open filter */}}
             accessibilityRole="button"
-            accessibilityLabel="Open settings"
+            accessibilityLabel="Filter rooms"
           >
-            <Ionicons name="settings-outline" size={22} color={iconColor} />
+            <Ionicons name="options-outline" size={18} color="#ffffff" />
+          </TouchableOpacity>
+
+          <TouchableOpacity
+            ref={settingsButtonRef}
+            style={[styles.iconCircle, { borderColor: iconColor }]}
+            onPress={toggleSettingsPopover}
+            accessibilityRole="button"
+            accessibilityLabel="Settings"
+          >
+            <Ionicons name="settings-outline" size={18} color="#ffffff" />
           </TouchableOpacity>
         </View>
 
-        {/* Search Bar */}
-        <View style={[styles.searchBar, { borderColor: iconColor }]}>
-          <Ionicons name="search" size={20} color={iconColor} />
-          <TextInput
-            style={[styles.searchInput, { color: textColor }]}
-            placeholder="Search buildings or rooms..."
-            placeholderTextColor={iconColor}
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-            autoCapitalize="none"
-            autoCorrect={false}
-          />
-          {searchQuery.length > 0 && (
-            <TouchableOpacity onPress={() => setSearchQuery('')}>
-              <Ionicons name="close-circle" size={20} color={iconColor} />
-            </TouchableOpacity>
-          )}
-        </View>
+        {/* Settings Modal */}
+        <Modal
+          transparent
+          visible={settingsOpen}
+          animationType="fade"
+          onRequestClose={() => setSettingsOpen(false)}
+        >
+          <Pressable
+            style={[styles.modalOverlay, { backgroundColor: overlayColor }]}
+            onPress={() => setSettingsOpen(false)}
+          >
+            <Pressable
+              onPress={() => {}}
+              style={[
+                styles.settingsPopover,
+                { backgroundColor: popoverBg },
+                popoverTopRight ? { top: popoverTopRight.top, right: popoverTopRight.right } : null,
+              ]}
+            >
+              <View style={styles.settingsRow}>
+                <View style={styles.settingsRowLeft}>
+                  <Ionicons name="map-outline" size={18} color={iconColor} />
+                  <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>Hide Map</ThemedText>
+                </View>
+                <Switch
+                  value={hideMap}
+                  onValueChange={setHideMap}
+                  trackColor={{ false: dividerColor, true: tintColor }}
+                  thumbColor="#ffffff"
+                  ios_backgroundColor={dividerColor}
+                />
+              </View>
+
+              <View style={[styles.settingsDivider, { backgroundColor: dividerColor }]} />
+
+              <View style={styles.usageSection}>
+                <ThemedText style={[styles.settingsSectionTitle, { color: popoverText }]}>
+                  Usage &amp; Etiquette:
+                </ThemedText>
+                {usageBullets.map((text) => (
+                  <View key={text} style={styles.bulletRow}>
+                    <ThemedText style={[styles.bulletDot, { color: iconColor }]}>•</ThemedText>
+                    <ThemedText style={[styles.bulletText, { color: iconColor }]}>{text}</ThemedText>
+                  </View>
+                ))}
+              </View>
+            </Pressable>
+          </Pressable>
+        </Modal>
 
         {/* Content */}
-        {renderContent()}
+        <View style={styles.roomContent}>
+          {renderContent()}
+        </View>
       </View>
     </ThemedView>
   );
@@ -402,23 +403,36 @@ const styles = StyleSheet.create({
   },
   contentPadding: {
     flex: 1,
-    paddingHorizontal: 16,
   },
   headerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    marginTop: 16,
-    marginBottom: 16,
+    gap: 8,
+    paddingHorizontal: 16,
   },
-  headerLeft: {
+  logoImage: {
+    height: 36,
+    width: 90,
+  },
+  roomContent: {
     flex: 1,
-    paddingRight: 12,
+    paddingHorizontal: 16,
   },
-  headerIconButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+  searchBar: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    gap: 8,
+  },
+  iconCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    borderWidth: 1,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -477,20 +491,6 @@ const styles = StyleSheet.create({
     flex: 1,
     lineHeight: 18,
     fontSize: 13,
-  },
-  subtitle: {
-    marginTop: 4,
-    opacity: 0.7,
-  },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    borderWidth: 1,
-    borderRadius: 12,
-    paddingHorizontal: 14,
-    paddingVertical: 10,
-    gap: 10,
-    marginBottom: 16,
   },
   searchInput: {
     flex: 1,

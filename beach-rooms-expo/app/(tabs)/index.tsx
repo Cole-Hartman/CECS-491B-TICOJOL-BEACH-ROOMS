@@ -43,6 +43,7 @@ export default function HomeScreen() {
   const [showAllOccupied, setShowAllOccupied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [showFilterButton, setShowFilterButton] = useState(false);
   const [settingsOpen, setSettingsOpen] = useState(false);
   const [hideMap, setHideMap] = useState(false);
   const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
@@ -326,13 +327,25 @@ export default function HomeScreen() {
           placeholder="Search buildings or rooms..."
           placeholderTextColor={iconColor}
           value={searchQuery}
-          onChangeText={setSearchQuery}
+          onChangeText={(text) => {
+            setSearchQuery(text);
+            setShowFilterButton(true);
+          }}
+          onFocus={() => setShowFilterButton(true)}
           autoCapitalize="none"
           autoCorrect={false}
         />
         {searchQuery.length > 0 && (
-          <TouchableOpacity onPress={() => setSearchQuery('')}>
+          <TouchableOpacity onPress={() => {
+            setSearchQuery('');
+            setShowFilterButton(false);
+          }}>
             <Ionicons name="close-circle" size={20} color={iconColor} />
+          </TouchableOpacity>
+        )}
+        {showFilterButton && (
+          <TouchableOpacity style={styles.filterButton} onPress={() => setSettingsOpen(true)}>
+            <Ionicons name="filter" size={20} color={iconColor} />
           </TouchableOpacity>
         )}
       </View>
@@ -460,6 +473,15 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+  },
+  filterButton: {
+    marginLeft: 10,
+    width: 34,
+    height: 34,
+    borderRadius: 8,
+    borderWidth: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   statsContainer: {
     flexDirection: 'row',

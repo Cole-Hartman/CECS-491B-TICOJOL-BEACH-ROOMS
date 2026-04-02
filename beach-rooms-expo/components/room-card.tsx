@@ -5,6 +5,7 @@ import { StyleSheet, TouchableOpacity, View } from 'react-native';
 import { ThemedText } from '@/components/themed-text';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { getStatusColor, getStatusLabel } from '@/lib/availability';
+import { formatDistance } from '@/lib/distance';
 import { useRoomDetail } from '@/providers/room-detail-provider';
 import type { ClassroomAvailability } from '@/types/database';
 
@@ -22,7 +23,7 @@ const AMENITY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
 };
 
 export function RoomCard({ availability }: RoomCardProps) {
-  const { classroom, status, statusText } = availability;
+  const { classroom, status, statusText, distanceMiles } = availability;
   const { building } = classroom;
   const { setSelectedRoom } = useRoomDetail();
   const router = useRouter();
@@ -33,6 +34,7 @@ export function RoomCard({ availability }: RoomCardProps) {
 
   const roomName = `${building.code} ${classroom.room_number}`;
   const floorText = classroom.floor ? `Floor ${classroom.floor}` : null;
+  const distanceText = distanceMiles !== null ? formatDistance(distanceMiles) : null;
 
   return (
     <TouchableOpacity
@@ -50,6 +52,14 @@ export function RoomCard({ availability }: RoomCardProps) {
             <ThemedText type="defaultSemiBold" style={styles.roomName}>
               {roomName}
             </ThemedText>
+            {distanceText && (
+              <View style={styles.distanceBadge}>
+                <Ionicons name="location-outline" size={12} color={iconColor} />
+                <ThemedText style={[styles.distanceText, { color: iconColor }]}>
+                  {distanceText}
+                </ThemedText>
+              </View>
+            )}
             {classroom.is_accessible && (
               <Ionicons
                 name="accessibility-outline"
@@ -135,6 +145,15 @@ const styles = StyleSheet.create({
   },
   roomName: {
     fontSize: 17,
+  },
+  distanceBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginLeft: 8,
+    gap: 2,
+  },
+  distanceText: {
+    fontSize: 12,
   },
   accessibleIcon: {
     marginLeft: 6,

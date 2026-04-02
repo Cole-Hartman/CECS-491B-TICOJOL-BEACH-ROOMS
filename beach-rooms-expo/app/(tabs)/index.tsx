@@ -25,6 +25,7 @@ import { useBuildingPins } from '@/hooks/use-building-pins';
 import { useClassrooms } from '@/hooks/use-classrooms';
 import { useColorSchemeToggle } from '@/hooks/use-color-scheme';
 import { useSettings } from '@/hooks/use-settings';
+import { useLocation } from '@/hooks/use-location';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import type { ClassroomAvailability } from '@/types/database';
 
@@ -48,8 +49,8 @@ export default function HomeScreen() {
     { light: 'rgba(0,0,0,0.15)', dark: 'rgba(0,0,0,0.45)' },
     'background'
   );
-
-  const { classrooms, isLoading, error, refetch } = useClassrooms();
+  const { location, status: locationStatus, requestPermission, refreshLocation } = useLocation();
+  const { classrooms, isLoading, error, refetch } = useClassrooms({userLocation: location});
   const buildingPins = useBuildingPins(classrooms);
   const scrollViewRef = useRef<ScrollView>(null);
   const buildingYPositions = useRef<Record<string, number>>({});
@@ -60,7 +61,6 @@ export default function HomeScreen() {
   const { settings, update: updateSetting, loaded: settingsLoaded } = useSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
-  // Sync persisted dark mode to color scheme on load
   useEffect(() => {
     if (settingsLoaded) {
       setColorScheme(settings.darkMode ? 'dark' : 'light');
@@ -163,7 +163,7 @@ export default function HomeScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refreshLocation()]);
     setRefreshing(false);
   };
 
@@ -413,8 +413,23 @@ export default function HomeScreen() {
         <View style={styles.roomContent}>
           {renderContent()}
         </View>
-      </View>
-    </ThemedView>
+        </View>
+        {/* Location Banner */}
+        {(locationStatus === 'denied' || locationStatus === 'pending') && (
+          <TouchableOpacity
+            style={styles.locationBanner}
+            onPress={requestPermission}
+            activeOpacity={0.7}
+          >
+            <Ionicons name="location-outline" size={18} color="#fff" />
+            <ThemedText style={styles.locationBannerText}>
+              Enable location to sort by distance
+            </ThemedText>
+            <Ionicons name="chevron-forward" size={16} color="#fff" />
+          </TouchableOpacity>
+        )}
+      </ThemedView>
+
   );
 }
 
@@ -529,6 +544,22 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 16,
     paddingVertical: 0,
+  },
+  locationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6c757d',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    gap: 8,
+  },
+  locationBannerText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   roomList: {
     flex: 1,

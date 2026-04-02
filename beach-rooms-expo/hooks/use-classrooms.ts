@@ -2,13 +2,19 @@ import { useCallback, useEffect, useState } from 'react';
 
 import { supabase } from '@/lib/supabase';
 import { calculateAvailability } from '@/lib/availability';
+import { calculateDistanceMiles } from '@/lib/distance';
 import type {
   ClassroomWithBuilding,
   ClassSchedule,
   ClassroomAvailability,
 } from '@/types/database';
+import type { UserLocation } from '@/hooks/use-location';
 
 const OPENING_SOON_MINUTES = 30;
+
+interface UseClassroomsOptions {
+  userLocation?: UserLocation | null;
+}
 
 interface UseClassroomsResult {
   classrooms: ClassroomAvailability[];
@@ -20,7 +26,8 @@ interface UseClassroomsResult {
   refetch: () => Promise<void>;
 }
 
-export function useClassrooms(): UseClassroomsResult {
+export function useClassrooms(options: UseClassroomsOptions = {}): UseClassroomsResult {
+  const { userLocation } = options;
   const [classrooms, setClassrooms] = useState<ClassroomAvailability[]>([]);
   const [testTime, setTestTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,24 +98,49 @@ export function useClassrooms(): UseClassroomsResult {
           const roomSchedules = schedules.filter(
             (s) => s.classroom_id === classroomWithBuilding.id
           );
-          return calculateAvailability(classroomWithBuilding, roomSchedules, now);
+          const availability = calculateAvailability(classroomWithBuilding, roomSchedules, now);
+
+          // Calculate distance if user location is available
+          if (userLocation && classroomWithBuilding.building.latitude && classroomWithBuilding.building.longitude) {
+            availability.distanceMiles = calculateDistanceMiles(
+              userLocation.latitude,
+              userLocation.longitude,
+              classroomWithBuilding.building.latitude,
+              classroomWithBuilding.building.longitude
+            );
+          }
+
+          return availability;
         })
         .filter((c): c is ClassroomAvailability => c !== null);
 
-      // Sort: available first, then by building code and room number
+      // Sort: available first, then by distance (if available), then alphabetically
       classroomsWithAvailability.sort((a, b) => {
-        // Available rooms first
+        // Primary: Available rooms first
         if (a.isAvailable !== b.isAvailable) {
           return a.isAvailable ? -1 : 1;
         }
-        // Then by building code
+
+        // Secondary: Distance (closest first) when location available
+        if (a.distanceMiles !== null && b.distanceMiles !== null) {
+          const distanceDiff = a.distanceMiles - b.distanceMiles;
+          if (Math.abs(distanceDiff) > 0.001) {
+            return distanceDiff;
+          }
+        } else if (a.distanceMiles !== null && b.distanceMiles === null) {
+          // Rooms with distance sort before those without
+          return -1;
+        } else if (a.distanceMiles === null && b.distanceMiles !== null) {
+          return 1;
+        }
+
+        // Fallback: Alphabetically by building code, then room number
         const buildingCompare = a.classroom.building.code.localeCompare(
           b.classroom.building.code
         );
         if (buildingCompare !== 0) {
           return buildingCompare;
         }
-        // Then by room number
         return a.classroom.room_number.localeCompare(b.classroom.room_number);
       });
 
@@ -120,7 +152,7 @@ export function useClassrooms(): UseClassroomsResult {
     } finally {
       setIsLoading(false);
     }
-  }, []);
+  }, [userLocation]);
 
   useEffect(() => {
     fetchClassrooms();

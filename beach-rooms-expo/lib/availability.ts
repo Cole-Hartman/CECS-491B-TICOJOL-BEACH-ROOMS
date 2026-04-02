@@ -197,6 +197,7 @@ export function calculateAvailability(
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
       statusText: isWeekend ? 'Closed on weekends' : 'No classes today',
+      distanceMiles: null,
     };
   }
 
@@ -211,6 +212,7 @@ export function calculateAvailability(
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
       statusText: formatTimeUntil(buildingStatus.opensAt, 'Opens at'),
+      distanceMiles: null,
     };
   }
 
@@ -225,6 +227,7 @@ export function calculateAvailability(
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
       statusText: 'Building closed',
+      distanceMiles: null,
     };
   }
 
@@ -239,6 +242,7 @@ export function calculateAvailability(
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
       statusText: 'No classes today',
+      distanceMiles: null,
     };
   }
 
@@ -277,6 +281,7 @@ export function calculateAvailability(
       statusText: nextWindow
         ? formatFreeAtWithDuration(nextWindow.startsAt, nextWindow.durationMinutes)
         : 'Busy all day',
+      distanceMiles: null,
     };
   }
 
@@ -301,6 +306,7 @@ export function calculateAvailability(
         statusText: nextWindow
           ? formatFreeAtWithDuration(nextWindow.startsAt, nextWindow.durationMinutes)
           : 'Busy all day',
+        distanceMiles: null,
       };
     }
 
@@ -313,6 +319,7 @@ export function calculateAvailability(
       currentClassEndsAt: null,
       minutesUntilNextClass: minutesUntil,
       statusText: formatFreeUntilWithDuration(nextStartTime, minutesUntil),
+      distanceMiles: null,
     };
   }
 
@@ -329,6 +336,7 @@ export function calculateAvailability(
     currentClassEndsAt: null,
     minutesUntilNextClass: null,
     statusText: formatFreeUntilWithDuration(buildingStatus.closesAt, minutesUntilClose),
+    distanceMiles: null,
   };
 }
 

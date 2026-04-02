@@ -19,6 +19,7 @@ import { RoomCard } from '@/components/room-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useClassrooms } from '@/hooks/use-classrooms';
+import { useLocation } from '@/hooks/use-location';
 import { useThemeColor } from '@/hooks/use-theme-color';
 
 const INITIAL_OCCUPIED_LIMIT = 3;
@@ -39,7 +40,8 @@ export default function HomeScreen() {
     'background'
   );
 
-  const { availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms();
+  const { location, status: locationStatus, requestPermission, refreshLocation } = useLocation();
+  const { availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms({ userLocation: location });
   const [showAllOccupied, setShowAllOccupied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -125,7 +127,7 @@ export default function HomeScreen() {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await refetch();
+    await Promise.all([refetch(), refreshLocation()]);
     setRefreshing(false);
   };
 
@@ -357,6 +359,21 @@ export default function HomeScreen() {
         </View>
       </View>
 
+      {/* Location Banner */}
+      {(locationStatus === 'denied' || locationStatus === 'pending') && (
+        <TouchableOpacity
+          style={styles.locationBanner}
+          onPress={requestPermission}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="location-outline" size={18} color="#fff" />
+          <ThemedText style={styles.locationBannerText}>
+            Enable location to sort by distance
+          </ThemedText>
+          <Ionicons name="chevron-forward" size={16} color="#fff" />
+        </TouchableOpacity>
+      )}
+
       {/* Content */}
       {renderContent()}
     </ThemedView>
@@ -479,6 +496,22 @@ const styles = StyleSheet.create({
   },
   totalCard: {
     backgroundColor: '#5a6268',
+  },
+  locationBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#6c757d',
+    borderRadius: 10,
+    paddingVertical: 10,
+    paddingHorizontal: 14,
+    marginBottom: 16,
+    gap: 8,
+  },
+  locationBannerText: {
+    flex: 1,
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '500',
   },
   statNumber: {
     fontSize: 28,

@@ -54,6 +54,7 @@ export interface ClassroomAvailability {
   currentClassEndsAt: Date | null;
   minutesUntilNextClass: number | null;
   statusText: string;
+  distanceMiles: number | null;
 }
 
 export interface Favorite {

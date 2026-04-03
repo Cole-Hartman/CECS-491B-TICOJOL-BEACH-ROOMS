@@ -8,7 +8,16 @@ import { formatTimeDisplay } from '@/lib/time-utils';
 interface FilterState {
   selectedTime: Date | null;
   sortByDistance: boolean;
+  minDuration: number | null; // in minutes: 30, 60, 120, 240, or null for any
 }
+
+const DURATION_OPTIONS = [
+  { label: 'Any', value: null },
+  { label: '30m', value: 30 },
+  { label: '1h', value: 60 },
+  { label: '2h', value: 120 },
+  { label: '4h', value: 240 },
+];
 
 interface FilterMenuProps {
   visible: boolean;
@@ -46,8 +55,9 @@ export function FilterMenu({
     'background'
   );
 
-  const { selectedTime, sortByDistance } = filterState;
+  const { selectedTime, sortByDistance, minDuration } = filterState;
   const hasTimeFilter = selectedTime !== null;
+  const hasDurationFilter = minDuration !== null;
 
   const handleToggleDistance = () => {
     if (!locationEnabled) {
@@ -61,11 +71,15 @@ export function FilterMenu({
     onApply({ ...filterState, selectedTime: null });
   };
 
-  const handleResetAll = () => {
-    onApply({ selectedTime: null, sortByDistance: true });
+  const handleSelectDuration = (duration: number | null) => {
+    onApply({ ...filterState, minDuration: duration });
   };
 
-  const hasActiveFilters = hasTimeFilter || !sortByDistance;
+  const handleResetAll = () => {
+    onApply({ selectedTime: null, sortByDistance: true, minDuration: null });
+  };
+
+  const hasActiveFilters = hasTimeFilter || !sortByDistance || hasDurationFilter;
 
   return (
     <Modal
@@ -121,6 +135,44 @@ export function FilterMenu({
               </View>
               <Ionicons name="chevron-forward" size={20} color={iconColor} />
             </TouchableOpacity>
+          </View>
+
+          <View style={[styles.divider, { backgroundColor: dividerColor }]} />
+
+          {/* Minimum Duration Section */}
+          <View style={styles.section}>
+            <View style={styles.sectionHeader}>
+              <Ionicons name="hourglass-outline" size={20} color={iconColor} />
+              <ThemedText style={[styles.sectionTitle, { color: textColor }]}>
+                Minimum Duration
+              </ThemedText>
+            </View>
+            <View style={styles.durationChipsContainer}>
+              {DURATION_OPTIONS.map((option) => {
+                const isSelected = minDuration === option.value;
+                return (
+                  <TouchableOpacity
+                    key={option.label}
+                    style={[
+                      styles.durationChip,
+                      { borderColor: isSelected ? tintColor : dividerColor },
+                      isSelected && { backgroundColor: `${tintColor}20` },
+                    ]}
+                    onPress={() => handleSelectDuration(option.value)}
+                    activeOpacity={0.7}
+                  >
+                    <ThemedText
+                      style={[
+                        styles.durationChipText,
+                        { color: isSelected ? tintColor : textColor },
+                      ]}
+                    >
+                      {option.label}
+                    </ThemedText>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
           </View>
 
           <View style={[styles.divider, { backgroundColor: dividerColor }]} />
@@ -245,6 +297,21 @@ const styles = StyleSheet.create({
   divider: {
     height: 1,
     marginVertical: 8,
+  },
+  durationChipsContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 8,
+  },
+  durationChip: {
+    paddingVertical: 10,
+    paddingHorizontal: 16,
+    borderRadius: 20,
+    borderWidth: 1,
+  },
+  durationChipText: {
+    fontSize: 14,
+    fontWeight: '500',
   },
   distanceRow: {
     flexDirection: 'row',

@@ -282,6 +282,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 16,
+    textAlign: 'center',
   },
   detailsSection: {
     marginBottom: 24,

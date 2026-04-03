@@ -113,16 +113,22 @@ function formatFreeAtWithDuration(time: Date, durationMinutes: number): string {
 }
 
 /**
- * Format "Free until X (Y)" message for currently available rooms
+ * Format a time as "H:MM AM/PM"
  */
-function formatFreeUntilWithDuration(untilTime: Date, durationMinutes: number): string {
-  const hours = untilTime.getHours();
-  const minutes = untilTime.getMinutes();
+function formatTime(time: Date): string {
+  const hours = time.getHours();
+  const minutes = time.getMinutes();
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const displayHours = hours % 12 || 12;
   const displayMinutes = minutes.toString().padStart(2, '0');
+  return `${displayHours}:${displayMinutes} ${ampm}`;
+}
 
-  return `Free until ${displayHours}:${displayMinutes} ${ampm} (${formatDuration(durationMinutes)})`;
+/**
+ * Format "Free from X until Y (Z)" message for currently available rooms
+ */
+function formatFreeUntilWithDuration(fromTime: Date, untilTime: Date, durationMinutes: number): string {
+  return `${formatTime(fromTime)} - ${formatTime(untilTime)}\n(${formatDuration(durationMinutes)} free)`;
 }
 
 const MIN_USABLE_MINUTES = 30;
@@ -246,9 +252,10 @@ export function calculateAvailability(
     };
   }
 
-  // Find current class and next class
+  // Find current class, next class, and previous class
   let currentClass: ClassSchedule | null = null;
   let nextClass: ClassSchedule | null = null;
+  let previousClass: ClassSchedule | null = null;
 
   for (const schedule of schedules) {
     const startTime = parseTimeToday(schedule.start_time, now);
@@ -259,6 +266,11 @@ export function calculateAvailability(
     } else if (now < startTime) {
       if (!nextClass || startTime < parseTimeToday(nextClass.start_time, now)) {
         nextClass = schedule;
+      }
+    } else if (endTime <= now) {
+      // Class ended before now - track the most recent one
+      if (!previousClass || endTime > parseTimeToday(previousClass.end_time, now)) {
+        previousClass = schedule;
       }
     }
   }
@@ -285,6 +297,11 @@ export function calculateAvailability(
     };
   }
 
+  // Determine when the room actually became free
+  const freeStartTime = previousClass
+    ? parseTimeToday(previousClass.end_time, now)
+    : buildingStatus.opensAt;
+
   // Room not currently in class - check gap to next class
   if (nextClass) {
     const nextStartTime = parseTimeToday(nextClass.start_time, now);
@@ -310,6 +327,11 @@ export function calculateAvailability(
       };
     }
 
+    // Calculate full duration from when room became free
+    const fullDurationMinutes = Math.floor(
+      (nextStartTime.getTime() - freeStartTime.getTime()) / 60000
+    );
+
     return {
       classroom,
       isAvailable: true,
@@ -318,14 +340,14 @@ export function calculateAvailability(
       nextClassStartsAt: nextStartTime,
       currentClassEndsAt: null,
       minutesUntilNextClass: minutesUntil,
-      statusText: formatFreeUntilWithDuration(nextStartTime, minutesUntil),
+      statusText: formatFreeUntilWithDuration(freeStartTime, nextStartTime, fullDurationMinutes),
       distanceMiles: null,
     };
   }
 
   // No more classes today - free until building closes
-  const minutesUntilClose = Math.floor(
-    (buildingStatus.closesAt.getTime() - now.getTime()) / 60000
+  const fullDurationMinutes = Math.floor(
+    (buildingStatus.closesAt.getTime() - freeStartTime.getTime()) / 60000
   );
   return {
     classroom,
@@ -335,7 +357,7 @@ export function calculateAvailability(
     nextClassStartsAt: null,
     currentClassEndsAt: null,
     minutesUntilNextClass: null,
-    statusText: formatFreeUntilWithDuration(buildingStatus.closesAt, minutesUntilClose),
+    statusText: formatFreeUntilWithDuration(freeStartTime, buildingStatus.closesAt, fullDurationMinutes),
     distanceMiles: null,
   };
 }

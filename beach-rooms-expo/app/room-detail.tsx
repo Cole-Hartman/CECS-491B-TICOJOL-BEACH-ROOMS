@@ -15,6 +15,7 @@ import { ThemedView } from '@/components/themed-view';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { getStatusColor, getStatusLabel } from '@/lib/availability';
+import { formatDistance } from '@/lib/distance';
 import { useRoomDetail } from '@/providers/room-detail-provider';
 
 const AMENITY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
@@ -62,10 +63,11 @@ export default function RoomDetailScreen() {
     );
   }
 
-  const { classroom, status, statusText } = selectedRoom;
+  const { classroom, status, statusText, distanceMiles } = selectedRoom;
   const { building } = classroom;
   const roomName = `${building.code} ${classroom.room_number}`;
   const floorText = classroom.floor ? `Floor ${classroom.floor}` : null;
+  const distanceText = distanceMiles !== null ? formatDistance(distanceMiles) : null;
   const statusColor = getStatusColor(status);
   const statusLabel = getStatusLabel(status);
 
@@ -139,6 +141,17 @@ export default function RoomDetailScreen() {
               <ThemedText style={styles.detailLabel}>Capacity</ThemedText>
               <ThemedText style={styles.detailValue}>{classroom.capacity}</ThemedText>
             </View>
+
+            {/* Distance */}
+            {distanceText && (
+              <View style={styles.detailRow}>
+                <View style={styles.detailIconContainer}>
+                  <Ionicons name="location-outline" size={20} color={iconColor} />
+                </View>
+                <ThemedText style={styles.detailLabel}>Distance</ThemedText>
+                <ThemedText style={styles.detailValue}>{distanceText}</ThemedText>
+              </View>
+            )}
 
             {/* Accessibility */}
             {classroom.is_accessible && (
@@ -282,6 +295,7 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 16,
+    textAlign: 'center',
   },
   detailsSection: {
     marginBottom: 24,

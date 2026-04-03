@@ -14,6 +14,8 @@ const OPENING_SOON_MINUTES = 30;
 
 interface UseClassroomsOptions {
   userLocation?: UserLocation | null;
+  filterTime?: Date | null;
+  sortByDistance?: boolean;
 }
 
 interface UseClassroomsResult {
@@ -21,13 +23,14 @@ interface UseClassroomsResult {
   availableRooms: ClassroomAvailability[];
   openingSoonRooms: ClassroomAvailability[];
   occupiedRooms: ClassroomAvailability[];
+  closedRooms: ClassroomAvailability[];
   isLoading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
 }
 
 export function useClassrooms(options: UseClassroomsOptions = {}): UseClassroomsResult {
-  const { userLocation } = options;
+  const { userLocation, filterTime, sortByDistance = true } = options;
   const [classrooms, setClassrooms] = useState<ClassroomAvailability[]>([]);
   const [testTime, setTestTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -38,17 +41,9 @@ export function useClassrooms(options: UseClassroomsOptions = {}): UseClassrooms
     setError(null);
 
     try {
-      // Commented out for testing - using Monday at noon instead
-      // const now = new Date();
-      // const dayOfWeek = now.getDay();
-      
-      // Testing: using Monday at noon
-      const now = new Date();
-      const currentDay = now.getDay();
-      const daysUntilMonday = currentDay === 1 ? 0 : (1 + 7 - currentDay) % 7; // Today if Monday, otherwise next Monday
-      now.setDate(now.getDate() + daysUntilMonday);
-      now.setHours(12, 0, 0, 0); // Set to noon
-      const dayOfWeek = 1; // Monday
+      // Use filterTime if provided, otherwise use current time
+      const now = filterTime ?? new Date();
+      const dayOfWeek = now.getDay();
 
       // Fetch classrooms with building info
       const { data: classroomsData, error: classroomsError } = await supabase
@@ -114,24 +109,26 @@ export function useClassrooms(options: UseClassroomsOptions = {}): UseClassrooms
         })
         .filter((c): c is ClassroomAvailability => c !== null);
 
-      // Sort: available first, then by distance (if available), then alphabetically
+      // Sort: available first, then by distance (if enabled), then alphabetically
       classroomsWithAvailability.sort((a, b) => {
         // Primary: Available rooms first
         if (a.isAvailable !== b.isAvailable) {
           return a.isAvailable ? -1 : 1;
         }
 
-        // Secondary: Distance (closest first) when location available
-        if (a.distanceMiles !== null && b.distanceMiles !== null) {
-          const distanceDiff = a.distanceMiles - b.distanceMiles;
-          if (Math.abs(distanceDiff) > 0.001) {
-            return distanceDiff;
+        // Secondary: Distance (closest first) when location available and sorting enabled
+        if (sortByDistance) {
+          if (a.distanceMiles !== null && b.distanceMiles !== null) {
+            const distanceDiff = a.distanceMiles - b.distanceMiles;
+            if (Math.abs(distanceDiff) > 0.001) {
+              return distanceDiff;
+            }
+          } else if (a.distanceMiles !== null && b.distanceMiles === null) {
+            // Rooms with distance sort before those without
+            return -1;
+          } else if (a.distanceMiles === null && b.distanceMiles !== null) {
+            return 1;
           }
-        } else if (a.distanceMiles !== null && b.distanceMiles === null) {
-          // Rooms with distance sort before those without
-          return -1;
-        } else if (a.distanceMiles === null && b.distanceMiles !== null) {
-          return 1;
         }
 
         // Fallback: Alphabetically by building code, then room number
@@ -152,7 +149,7 @@ export function useClassrooms(options: UseClassroomsOptions = {}): UseClassrooms
     } finally {
       setIsLoading(false);
     }
-  }, [userLocation]);
+  }, [userLocation, filterTime, sortByDistance]);
 
   useEffect(() => {
     fetchClassrooms();
@@ -185,17 +182,24 @@ export function useClassrooms(options: UseClassroomsOptions = {}): UseClassrooms
   });
   console.log(`[Opening Soon] Found ${openingSoonRooms.length} opening soon rooms`);
 
-  // Occupied rooms excludes those opening soon
+  // Occupied rooms: in_use or limited status, excludes those opening soon
   const openingSoonIds = new Set(openingSoonRooms.map((c) => c.classroom.id));
   const occupiedRooms = classrooms.filter(
-    (c) => !c.isAvailable && !openingSoonIds.has(c.classroom.id)
+    (c) =>
+      !c.isAvailable &&
+      !openingSoonIds.has(c.classroom.id) &&
+      (c.status === 'in_use' || c.status === 'limited')
   );
+
+  // Closed rooms: building closed, no classes today, etc.
+  const closedRooms = classrooms.filter((c) => c.status === 'closed');
 
   return {
     classrooms,
     availableRooms,
     openingSoonRooms,
     occupiedRooms,
+    closedRooms,
     isLoading,
     error,
     refetch: fetchClassrooms,

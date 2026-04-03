@@ -15,12 +15,16 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FilterButton } from '@/components/filter-button';
+import { FilterMenu } from '@/components/filter-menu';
 import { RoomCard } from '@/components/room-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TimePickerModal } from '@/components/time-picker-modal';
 import { useClassrooms } from '@/hooks/use-classrooms';
 import { useLocation } from '@/hooks/use-location';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { formatTimeDisplay } from '@/lib/time-utils';
 
 const INITIAL_OCCUPIED_LIMIT = 3;
 
@@ -41,8 +45,13 @@ export default function HomeScreen() {
   );
 
   const { location, status: locationStatus, requestPermission, refreshLocation } = useLocation();
-  const { availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms({ userLocation: location });
+  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+  const [sortByDistance, setSortByDistance] = useState(true);
+  const [timePickerVisible, setTimePickerVisible] = useState(false);
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const { availableRooms, openingSoonRooms, occupiedRooms, closedRooms, isLoading, error, refetch } = useClassrooms({ userLocation: location, filterTime: selectedTime, sortByDistance });
   const [showAllOccupied, setShowAllOccupied] = useState(false);
+  const [showAllClosed, setShowAllClosed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [settingsOpen, setSettingsOpen] = useState(false);
@@ -84,6 +93,26 @@ export default function HomeScreen() {
     "Classroom access is a privilege. Rooms may be locked by the school if used improperly",
   ];
 
+  const handleTimeConfirm = (time: Date) => {
+    setSelectedTime(time);
+    setTimePickerVisible(false);
+  };
+
+  const handleTimeReset = () => {
+    setSelectedTime(null);
+    setTimePickerVisible(false);
+  };
+
+  const locationEnabled = locationStatus === 'granted' && location !== null;
+
+  const handleFilterApply = (newState: { selectedTime: Date | null; sortByDistance: boolean }) => {
+    setSelectedTime(newState.selectedTime);
+    setSortByDistance(newState.sortByDistance);
+  };
+
+  // Count active filters for badge
+  const activeFilterCount = (selectedTime !== null ? 1 : 0) + (sortByDistance && locationEnabled ? 1 : 0);
+
   // Filter rooms based on search query
   const filteredAvailable = useMemo(() => {
     if (!searchQuery.trim()) return availableRooms;
@@ -121,9 +150,25 @@ export default function HomeScreen() {
     );
   }, [occupiedRooms, searchQuery]);
 
+  const filteredClosed = useMemo(() => {
+    if (!searchQuery.trim()) return closedRooms;
+    const query = searchQuery.toLowerCase();
+    return closedRooms.filter(
+      (room) =>
+        room.classroom.building.code.toLowerCase().includes(query) ||
+        (room.classroom.building.name && room.classroom.building.name.toLowerCase().includes(query)) ||
+        room.classroom.room_number.toLowerCase().includes(query) ||
+        `${room.classroom.building.code} ${room.classroom.room_number}`.toLowerCase().includes(query)
+    );
+  }, [closedRooms, searchQuery]);
+
   const displayedOccupied = showAllOccupied
     ? filteredOccupied
     : filteredOccupied.slice(0, INITIAL_OCCUPIED_LIMIT);
+
+  const displayedClosed = showAllClosed
+    ? filteredClosed
+    : filteredClosed.slice(0, INITIAL_OCCUPIED_LIMIT);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -173,7 +218,9 @@ export default function HomeScreen() {
       >
         {/* Available Rooms Section */}
         <View style={styles.sectionHeader}>
-          <ThemedText type="subtitle">Available Now</ThemedText>
+          <ThemedText type="subtitle">
+            {selectedTime ? `Available at ${formatTimeDisplay(selectedTime)}` : 'Available Now'}
+          </ThemedText>
           <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
             {filteredAvailable.length} rooms
           </ThemedText>
@@ -233,6 +280,40 @@ export default function HomeScreen() {
                 </ThemedText>
                 <Ionicons
                   name={showAllOccupied ? 'chevron-up' : 'chevron-down'}
+                  size={16}
+                  color={tintColor}
+                />
+              </TouchableOpacity>
+            )}
+          </>
+        )}
+
+        {/* Closed Rooms Section */}
+        {filteredClosed.length > 0 && (
+          <>
+            <View style={[styles.sectionHeader, styles.closedHeader]}>
+              <ThemedText type="subtitle">Closed</ThemedText>
+              <ThemedText style={[styles.sectionCount, { color: iconColor }]}>
+                {filteredClosed.length} rooms
+              </ThemedText>
+            </View>
+
+            {displayedClosed.map((room) => (
+              <RoomCard key={room.classroom.id} availability={room} />
+            ))}
+
+            {filteredClosed.length > INITIAL_OCCUPIED_LIMIT && (
+              <TouchableOpacity
+                style={[styles.showMoreButton, { borderColor: iconColor }]}
+                onPress={() => setShowAllClosed(!showAllClosed)}
+              >
+                <ThemedText style={[styles.showMoreText, { color: tintColor }]}>
+                  {showAllClosed
+                    ? 'Show Less'
+                    : `Show ${filteredClosed.length - INITIAL_OCCUPIED_LIMIT} More`}
+                </ThemedText>
+                <Ionicons
+                  name={showAllClosed ? 'chevron-up' : 'chevron-down'}
                   size={16}
                   color={tintColor}
                 />
@@ -339,6 +420,44 @@ export default function HomeScreen() {
         )}
       </View>
 
+      {/* Filter Button */}
+      <FilterButton
+        activeFilterCount={activeFilterCount}
+        onPress={() => setFilterMenuVisible(true)}
+      />
+
+      {/* Filter Menu Modal */}
+      <FilterMenu
+        visible={filterMenuVisible}
+        onClose={() => setFilterMenuVisible(false)}
+        filterState={{ selectedTime, sortByDistance }}
+        onApply={handleFilterApply}
+        onOpenTimePicker={() => {
+          setFilterMenuVisible(false);
+          setTimePickerVisible(true);
+        }}
+        locationEnabled={locationEnabled}
+        onRequestLocation={requestPermission}
+      />
+
+      {/* Time Picker Modal */}
+      <TimePickerModal
+        visible={timePickerVisible}
+        initialTime={selectedTime || new Date()}
+        onConfirm={(time) => {
+          handleTimeConfirm(time);
+          setFilterMenuVisible(true);
+        }}
+        onCancel={() => {
+          setTimePickerVisible(false);
+          setFilterMenuVisible(true);
+        }}
+        onReset={() => {
+          handleTimeReset();
+          setFilterMenuVisible(true);
+        }}
+      />
+
       {/* Quick Stats */}
       <View style={styles.statsContainer}>
         <View style={[styles.statCard, styles.availableCard]}>
@@ -358,21 +477,6 @@ export default function HomeScreen() {
           </ThemedText>
         </View>
       </View>
-
-      {/* Location Banner */}
-      {(locationStatus === 'denied' || locationStatus === 'pending') && (
-        <TouchableOpacity
-          style={styles.locationBanner}
-          onPress={requestPermission}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="location-outline" size={18} color="#fff" />
-          <ThemedText style={styles.locationBannerText}>
-            Enable location to sort by distance
-          </ThemedText>
-          <Ionicons name="chevron-forward" size={16} color="#fff" />
-        </TouchableOpacity>
-      )}
 
       {/* Content */}
       {renderContent()}
@@ -497,22 +601,6 @@ const styles = StyleSheet.create({
   totalCard: {
     backgroundColor: '#5a6268',
   },
-  locationBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#6c757d',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-    gap: 8,
-  },
-  locationBannerText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
-  },
   statNumber: {
     fontSize: 28,
     fontWeight: 'bold',
@@ -538,6 +626,9 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   occupiedHeader: {
+    marginTop: 24,
+  },
+  closedHeader: {
     marginTop: 24,
   },
   emptySection: {

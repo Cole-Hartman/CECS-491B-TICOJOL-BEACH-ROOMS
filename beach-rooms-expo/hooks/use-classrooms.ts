@@ -16,6 +16,7 @@ interface UseClassroomsOptions {
   userLocation?: UserLocation | null;
   filterTime?: Date | null;
   sortByDistance?: boolean;
+  minDuration?: number | null; // minimum available duration in minutes
 }
 
 interface UseClassroomsResult {
@@ -30,7 +31,7 @@ interface UseClassroomsResult {
 }
 
 export function useClassrooms(options: UseClassroomsOptions = {}): UseClassroomsResult {
-  const { userLocation, filterTime, sortByDistance = true } = options;
+  const { userLocation, filterTime, sortByDistance = true, minDuration = null } = options;
   const [classrooms, setClassrooms] = useState<ClassroomAvailability[]>([]);
   const [testTime, setTestTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -155,7 +156,13 @@ export function useClassrooms(options: UseClassroomsOptions = {}): UseClassrooms
     fetchClassrooms();
   }, [fetchClassrooms]);
 
-  const availableRooms = classrooms.filter((c) => c.isAvailable);
+  const availableRooms = classrooms.filter((c) => {
+    if (!c.isAvailable) return false;
+    if (minDuration !== null && c.availableDurationMinutes !== null) {
+      return c.availableDurationMinutes >= minDuration;
+    }
+    return true;
+  });
 
   // Rooms opening soon: currently in use but class ends within 30 minutes
   const now = testTime || new Date();

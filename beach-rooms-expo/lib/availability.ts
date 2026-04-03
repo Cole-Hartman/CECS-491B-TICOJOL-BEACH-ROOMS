@@ -202,6 +202,7 @@ export function calculateAvailability(
       nextClassStartsAt: null,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: isWeekend ? 'Closed on weekends' : 'No classes today',
       distanceMiles: null,
     };
@@ -217,6 +218,7 @@ export function calculateAvailability(
       nextClassStartsAt: buildingStatus.opensAt,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: formatTimeUntil(buildingStatus.opensAt, 'Opens at'),
       distanceMiles: null,
     };
@@ -232,6 +234,7 @@ export function calculateAvailability(
       nextClassStartsAt: null,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: 'Building closed',
       distanceMiles: null,
     };
@@ -247,6 +250,7 @@ export function calculateAvailability(
       nextClassStartsAt: null,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: 'No classes today',
       distanceMiles: null,
     };
@@ -290,6 +294,7 @@ export function calculateAvailability(
       nextClassStartsAt: nextClass ? parseTimeToday(nextClass.start_time, now) : null,
       currentClassEndsAt: endsAt,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: nextWindow
         ? formatFreeAtWithDuration(nextWindow.startsAt, nextWindow.durationMinutes)
         : 'Busy all day',
@@ -320,6 +325,7 @@ export function calculateAvailability(
         nextClassStartsAt: nextStartTime,
         currentClassEndsAt: null,
         minutesUntilNextClass: minutesUntil,
+        availableDurationMinutes: null,
         statusText: nextWindow
           ? formatFreeAtWithDuration(nextWindow.startsAt, nextWindow.durationMinutes)
           : 'Busy all day',
@@ -340,13 +346,14 @@ export function calculateAvailability(
       nextClassStartsAt: nextStartTime,
       currentClassEndsAt: null,
       minutesUntilNextClass: minutesUntil,
+      availableDurationMinutes: fullDurationMinutes,
       statusText: formatFreeUntilWithDuration(freeStartTime, nextStartTime, fullDurationMinutes),
       distanceMiles: null,
     };
   }
 
   // No more classes today - free until building closes
-  const fullDurationMinutes = Math.floor(
+  const closeDurationMinutes = Math.floor(
     (buildingStatus.closesAt.getTime() - freeStartTime.getTime()) / 60000
   );
   return {
@@ -357,7 +364,8 @@ export function calculateAvailability(
     nextClassStartsAt: null,
     currentClassEndsAt: null,
     minutesUntilNextClass: null,
-    statusText: formatFreeUntilWithDuration(freeStartTime, buildingStatus.closesAt, fullDurationMinutes),
+    availableDurationMinutes: closeDurationMinutes,
+    statusText: formatFreeUntilWithDuration(freeStartTime, buildingStatus.closesAt, closeDurationMinutes),
     distanceMiles: null,
   };
 }

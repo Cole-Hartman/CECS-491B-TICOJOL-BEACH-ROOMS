@@ -53,6 +53,7 @@ export interface ClassroomAvailability {
   nextClassStartsAt: Date | null;
   currentClassEndsAt: Date | null;
   minutesUntilNextClass: number | null;
+  availableDurationMinutes: number | null;
   statusText: string;
   distanceMiles: number | null;
 }

@@ -47,9 +47,10 @@ export default function HomeScreen() {
   const { location, status: locationStatus, requestPermission, refreshLocation } = useLocation();
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [sortByDistance, setSortByDistance] = useState(true);
+  const [minDuration, setMinDuration] = useState<number | null>(null);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
-  const { availableRooms, openingSoonRooms, occupiedRooms, closedRooms, isLoading, error, refetch } = useClassrooms({ userLocation: location, filterTime: selectedTime, sortByDistance });
+  const { availableRooms, openingSoonRooms, occupiedRooms, closedRooms, isLoading, error, refetch } = useClassrooms({ userLocation: location, filterTime: selectedTime, sortByDistance, minDuration });
   const [showAllOccupied, setShowAllOccupied] = useState(false);
   const [showAllClosed, setShowAllClosed] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
@@ -105,13 +106,17 @@ export default function HomeScreen() {
 
   const locationEnabled = locationStatus === 'granted' && location !== null;
 
-  const handleFilterApply = (newState: { selectedTime: Date | null; sortByDistance: boolean }) => {
+  const handleFilterApply = (newState: { selectedTime: Date | null; sortByDistance: boolean; minDuration: number | null }) => {
     setSelectedTime(newState.selectedTime);
     setSortByDistance(newState.sortByDistance);
+    setMinDuration(newState.minDuration);
   };
 
   // Count active filters for badge
-  const activeFilterCount = (selectedTime !== null ? 1 : 0) + (sortByDistance && locationEnabled ? 1 : 0);
+  const activeFilterCount =
+    (selectedTime !== null ? 1 : 0) +
+    (sortByDistance && locationEnabled ? 1 : 0) +
+    (minDuration !== null ? 1 : 0);
 
   // Filter rooms based on search query
   const filteredAvailable = useMemo(() => {
@@ -430,7 +435,7 @@ export default function HomeScreen() {
       <FilterMenu
         visible={filterMenuVisible}
         onClose={() => setFilterMenuVisible(false)}
-        filterState={{ selectedTime, sortByDistance }}
+        filterState={{ selectedTime, sortByDistance, minDuration }}
         onApply={handleFilterApply}
         onOpenTimePicker={() => {
           setFilterMenuVisible(false);

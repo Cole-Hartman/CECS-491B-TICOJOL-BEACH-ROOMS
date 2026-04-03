@@ -15,6 +15,7 @@ const OPENING_SOON_MINUTES = 30;
 interface UseClassroomsOptions {
   userLocation?: UserLocation | null;
   filterTime?: Date | null;
+  sortByDistance?: boolean;
 }
 
 interface UseClassroomsResult {
@@ -28,7 +29,7 @@ interface UseClassroomsResult {
 }
 
 export function useClassrooms(options: UseClassroomsOptions = {}): UseClassroomsResult {
-  const { userLocation, filterTime } = options;
+  const { userLocation, filterTime, sortByDistance = true } = options;
   const [classrooms, setClassrooms] = useState<ClassroomAvailability[]>([]);
   const [testTime, setTestTime] = useState<Date | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -107,24 +108,26 @@ export function useClassrooms(options: UseClassroomsOptions = {}): UseClassrooms
         })
         .filter((c): c is ClassroomAvailability => c !== null);
 
-      // Sort: available first, then by distance (if available), then alphabetically
+      // Sort: available first, then by distance (if enabled), then alphabetically
       classroomsWithAvailability.sort((a, b) => {
         // Primary: Available rooms first
         if (a.isAvailable !== b.isAvailable) {
           return a.isAvailable ? -1 : 1;
         }
 
-        // Secondary: Distance (closest first) when location available
-        if (a.distanceMiles !== null && b.distanceMiles !== null) {
-          const distanceDiff = a.distanceMiles - b.distanceMiles;
-          if (Math.abs(distanceDiff) > 0.001) {
-            return distanceDiff;
+        // Secondary: Distance (closest first) when location available and sorting enabled
+        if (sortByDistance) {
+          if (a.distanceMiles !== null && b.distanceMiles !== null) {
+            const distanceDiff = a.distanceMiles - b.distanceMiles;
+            if (Math.abs(distanceDiff) > 0.001) {
+              return distanceDiff;
+            }
+          } else if (a.distanceMiles !== null && b.distanceMiles === null) {
+            // Rooms with distance sort before those without
+            return -1;
+          } else if (a.distanceMiles === null && b.distanceMiles !== null) {
+            return 1;
           }
-        } else if (a.distanceMiles !== null && b.distanceMiles === null) {
-          // Rooms with distance sort before those without
-          return -1;
-        } else if (a.distanceMiles === null && b.distanceMiles !== null) {
-          return 1;
         }
 
         // Fallback: Alphabetically by building code, then room number
@@ -145,7 +148,7 @@ export function useClassrooms(options: UseClassroomsOptions = {}): UseClassrooms
     } finally {
       setIsLoading(false);
     }
-  }, [userLocation, filterTime]);
+  }, [userLocation, filterTime, sortByDistance]);
 
   useEffect(() => {
     fetchClassrooms();

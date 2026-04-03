@@ -15,10 +15,11 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { FilterButton } from '@/components/filter-button';
+import { FilterMenu } from '@/components/filter-menu';
 import { RoomCard } from '@/components/room-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
-import { TimeFilterChip } from '@/components/time-filter-chip';
 import { TimePickerModal } from '@/components/time-picker-modal';
 import { useClassrooms } from '@/hooks/use-classrooms';
 import { useLocation } from '@/hooks/use-location';
@@ -45,8 +46,10 @@ export default function HomeScreen() {
 
   const { location, status: locationStatus, requestPermission, refreshLocation } = useLocation();
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+  const [sortByDistance, setSortByDistance] = useState(true);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
-  const { availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms({ userLocation: location, filterTime: selectedTime });
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+  const { availableRooms, openingSoonRooms, occupiedRooms, isLoading, error, refetch } = useClassrooms({ userLocation: location, filterTime: selectedTime, sortByDistance });
   const [showAllOccupied, setShowAllOccupied] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
@@ -98,6 +101,16 @@ export default function HomeScreen() {
     setSelectedTime(null);
     setTimePickerVisible(false);
   };
+
+  const locationEnabled = locationStatus === 'granted' && location !== null;
+
+  const handleFilterApply = (newState: { selectedTime: Date | null; sortByDistance: boolean }) => {
+    setSelectedTime(newState.selectedTime);
+    setSortByDistance(newState.sortByDistance);
+  };
+
+  // Count active filters for badge
+  const activeFilterCount = (selectedTime !== null ? 1 : 0) + (!sortByDistance ? 1 : 0);
 
   // Filter rooms based on search query
   const filteredAvailable = useMemo(() => {
@@ -356,20 +369,42 @@ export default function HomeScreen() {
         )}
       </View>
 
-      {/* Time Filter */}
-      <TimeFilterChip
-        selectedTime={selectedTime}
-        onPress={() => setTimePickerVisible(true)}
-        onClear={handleTimeReset}
+      {/* Filter Button */}
+      <FilterButton
+        activeFilterCount={activeFilterCount}
+        onPress={() => setFilterMenuVisible(true)}
+      />
+
+      {/* Filter Menu Modal */}
+      <FilterMenu
+        visible={filterMenuVisible}
+        onClose={() => setFilterMenuVisible(false)}
+        filterState={{ selectedTime, sortByDistance }}
+        onApply={handleFilterApply}
+        onOpenTimePicker={() => {
+          setFilterMenuVisible(false);
+          setTimePickerVisible(true);
+        }}
+        locationEnabled={locationEnabled}
+        onRequestLocation={requestPermission}
       />
 
       {/* Time Picker Modal */}
       <TimePickerModal
         visible={timePickerVisible}
         initialTime={selectedTime || new Date()}
-        onConfirm={handleTimeConfirm}
-        onCancel={() => setTimePickerVisible(false)}
-        onReset={handleTimeReset}
+        onConfirm={(time) => {
+          handleTimeConfirm(time);
+          setFilterMenuVisible(true);
+        }}
+        onCancel={() => {
+          setTimePickerVisible(false);
+          setFilterMenuVisible(true);
+        }}
+        onReset={() => {
+          handleTimeReset();
+          setFilterMenuVisible(true);
+        }}
       />
 
       {/* Quick Stats */}
@@ -391,21 +426,6 @@ export default function HomeScreen() {
           </ThemedText>
         </View>
       </View>
-
-      {/* Location Banner */}
-      {(locationStatus === 'denied' || locationStatus === 'pending') && (
-        <TouchableOpacity
-          style={styles.locationBanner}
-          onPress={requestPermission}
-          activeOpacity={0.7}
-        >
-          <Ionicons name="location-outline" size={18} color="#fff" />
-          <ThemedText style={styles.locationBannerText}>
-            Enable location to sort by distance
-          </ThemedText>
-          <Ionicons name="chevron-forward" size={16} color="#fff" />
-        </TouchableOpacity>
-      )}
 
       {/* Content */}
       {renderContent()}
@@ -529,22 +549,6 @@ const styles = StyleSheet.create({
   },
   totalCard: {
     backgroundColor: '#5a6268',
-  },
-  locationBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#6c757d',
-    borderRadius: 10,
-    paddingVertical: 10,
-    paddingHorizontal: 14,
-    marginBottom: 16,
-    gap: 8,
-  },
-  locationBannerText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '500',
   },
   statNumber: {
     fontSize: 28,

@@ -10,6 +10,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { ReportFormModal } from '@/components/report-form-modal';
+import { ReportSuccessModal } from '@/components/report-success-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useFavorites } from '@/hooks/use-favorites';
@@ -17,6 +19,7 @@ import { useThemeColor } from '@/hooks/use-theme-color';
 import { getStatusColor, getStatusLabel } from '@/lib/availability';
 import { formatDistance } from '@/lib/distance';
 import { useRoomDetail } from '@/providers/room-detail-provider';
+import type { Report } from '@/types/database';
 
 const AMENITY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
   projector: 'videocam-outline',
@@ -47,6 +50,15 @@ export default function RoomDetailScreen() {
   const backgroundColor = useThemeColor({}, 'background');
 
   const [isSaving, setIsSaving] = useState(false);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [submittedReportId, setSubmittedReportId] = useState<string>('');
+
+  const handleReportSuccess = (report: Report) => {
+    setReportModalVisible(false);
+    setSubmittedReportId(report.id);
+    setSuccessModalVisible(true);
+  };
 
   const handleClose = () => {
     setSelectedRoom(null);
@@ -98,7 +110,13 @@ export default function RoomDetailScreen() {
         <ThemedText type="subtitle" style={styles.headerTitle}>
           Room Details
         </ThemedText>
-        <View style={styles.headerSpacer} />
+        <TouchableOpacity
+          onPress={() => setReportModalVisible(true)}
+          style={styles.reportButton}
+          hitSlop={10}
+        >
+          <Ionicons name="flag-outline" size={22} color={iconColor} />
+        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.content} showsVerticalScrollIndicator={false}>
@@ -229,6 +247,21 @@ export default function RoomDetailScreen() {
           )}
         </TouchableOpacity>
       </View>
+
+      {/* Report Modals */}
+      <ReportFormModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        onSuccess={handleReportSuccess}
+        classroomId={classroom.id}
+        roomName={roomName}
+      />
+
+      <ReportSuccessModal
+        visible={successModalVisible}
+        onClose={() => setSuccessModalVisible(false)}
+        reportId={submittedReportId}
+      />
     </ThemedView>
   );
 }
@@ -254,10 +287,9 @@ const styles = StyleSheet.create({
   headerTitle: {
     flex: 1,
     textAlign: 'center',
-    marginRight: 44, // Balance the back button width
   },
-  headerSpacer: {
-    width: 44,
+  reportButton: {
+    padding: 8,
   },
   content: {
     flex: 1,

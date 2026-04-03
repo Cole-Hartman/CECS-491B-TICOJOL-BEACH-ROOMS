@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useState, useMemo, useRef } from 'react';
 import {
   ActivityIndicator,
@@ -17,6 +18,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { FilterButton } from '@/components/filter-button';
 import { FilterMenu } from '@/components/filter-menu';
+import { ReportFormModal } from '@/components/report-form-modal';
+import { ReportSuccessModal } from '@/components/report-success-modal';
 import { RoomCard } from '@/components/room-card';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
@@ -24,12 +27,16 @@ import { TimePickerModal } from '@/components/time-picker-modal';
 import { useClassrooms } from '@/hooks/use-classrooms';
 import { useLocation } from '@/hooks/use-location';
 import { useThemeColor } from '@/hooks/use-theme-color';
+import { useAuth } from '@/providers/auth-provider';
 import { formatTimeDisplay } from '@/lib/time-utils';
+import type { Report } from '@/types/database';
 
 const INITIAL_OCCUPIED_LIMIT = 3;
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { isLoggedIn } = useAuth();
   const tintColor = useThemeColor({}, 'tint');
   const iconColor = useThemeColor({}, 'icon');
   const textColor = useThemeColor({}, 'text');
@@ -59,6 +66,25 @@ export default function HomeScreen() {
   const [hideMap, setHideMap] = useState(false);
   const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
   const gearButtonRef = useRef<View>(null);
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [submittedReportId, setSubmittedReportId] = useState<string>('');
+
+  const handleReportSuccess = (report: Report) => {
+    setReportModalVisible(false);
+    setSubmittedReportId(report.id);
+    setSuccessModalVisible(true);
+  };
+
+  const handleOpenReportModal = () => {
+    setSettingsOpen(false);
+    setReportModalVisible(true);
+  };
+
+  const handleOpenMyReports = () => {
+    setSettingsOpen(false);
+    router.push('/my-reports' as '/login');
+  };
 
   const openSettingsPopover = () => {
     const node = gearButtonRef.current;
@@ -402,6 +428,31 @@ export default function HomeScreen() {
                 </View>
               ))}
             </View>
+
+            <View style={[styles.settingsDivider, { backgroundColor: dividerColor }]} />
+
+            {/* Report Section */}
+            <TouchableOpacity style={styles.settingsLinkRow} onPress={handleOpenReportModal}>
+              <View style={styles.settingsRowLeft}>
+                <Ionicons name="flag-outline" size={18} color={iconColor} />
+                <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>
+                  Report an Issue
+                </ThemedText>
+              </View>
+              <Ionicons name="chevron-forward" size={18} color={iconColor} />
+            </TouchableOpacity>
+
+            {isLoggedIn && (
+              <TouchableOpacity style={styles.settingsLinkRow} onPress={handleOpenMyReports}>
+                <View style={styles.settingsRowLeft}>
+                  <Ionicons name="document-text-outline" size={18} color={iconColor} />
+                  <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>
+                    My Reports
+                  </ThemedText>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={iconColor} />
+              </TouchableOpacity>
+            )}
           </Pressable>
         </Pressable>
       </Modal>
@@ -485,6 +536,19 @@ export default function HomeScreen() {
 
       {/* Content */}
       {renderContent()}
+
+      {/* Report Modals */}
+      <ReportFormModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        onSuccess={handleReportSuccess}
+      />
+
+      <ReportSuccessModal
+        visible={successModalVisible}
+        onClose={() => setSuccessModalVisible(false)}
+        reportId={submittedReportId}
+      />
     </ThemedView>
   );
 }
@@ -552,6 +616,13 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   usageSection: {
+    paddingHorizontal: 6,
+  },
+  settingsLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
     paddingHorizontal: 6,
   },
   bulletRow: {

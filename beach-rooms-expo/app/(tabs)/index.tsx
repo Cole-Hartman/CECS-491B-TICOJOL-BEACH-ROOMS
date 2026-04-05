@@ -87,7 +87,6 @@ export default function HomeScreen() {
     }
   }, [settingsLoaded, setColorScheme, settings.darkMode]);
   const [autoCenterHelpVisible, setAutoCenterHelpVisible] = useState(false);
-  const [sortByDistanceHelpVisible, setSortByDistanceHelpVisible] = useState(false);
   const [usageExpanded, setUsageExpanded] = useState(false);
   const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
   const settingsButtonRef = useRef<View>(null);
@@ -473,34 +472,6 @@ export default function HomeScreen() {
                   ios_backgroundColor={dividerColor}
                 />
               </View>
-
-              <View style={styles.settingsRow}>
-                <View style={styles.settingsRowLeft}>
-                  <Ionicons name="navigate-outline" size={18} color={iconColor} />
-                  <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>Sort Buildings by Distance</ThemedText>
-                  <TouchableOpacity onPress={() => setSortByDistanceHelpVisible(!sortByDistanceHelpVisible)} hitSlop={8}>
-                    <Ionicons name="help-circle-outline" size={16} color={iconColor} />
-                  </TouchableOpacity>
-                </View>
-                <Switch
-                  value={settings.sortByDistance}
-                  onValueChange={(v) => {
-                    updateSetting('sortByDistance', v);
-                    if (v && locationStatus !== 'granted') {
-                      requestPermission();
-                    }
-                  }}
-                  trackColor={{ false: dividerColor, true: tintColor }}
-                  thumbColor="#ffffff"
-                  ios_backgroundColor={dividerColor}
-                />
-              </View>
-
-              {sortByDistanceHelpVisible && (
-                <ThemedText style={[styles.autoCenterHelp, { color: iconColor }]}>
-                  Sorts buildings by distance from your current location. Requires location permission.
-                </ThemedText>
-              )}
 
               <View style={[styles.settingsDivider, { backgroundColor: dividerColor }]} />
 

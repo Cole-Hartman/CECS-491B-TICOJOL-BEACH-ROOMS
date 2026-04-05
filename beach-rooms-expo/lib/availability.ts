@@ -64,24 +64,6 @@ function formatTimeUntil(targetTime: Date, prefix: string): string {
 }
 
 /**
- * Format how long a room is free for
- */
-function formatFreeTime(minutes: number): string {
-  if (minutes < 60) {
-    return `Free for ${minutes} min`;
-  }
-
-  const hours = Math.floor(minutes / 60);
-  const remainingMinutes = minutes % 60;
-
-  if (remainingMinutes === 0) {
-    return `Free for ${hours}h`;
-  }
-
-  return `Free for ${hours}h ${remainingMinutes}m`;
-}
-
-/**
  * Format duration in short form (e.g., "2h" or "1h 30m")
  */
 function formatDuration(minutes: number): string {
@@ -113,16 +95,22 @@ function formatFreeAtWithDuration(time: Date, durationMinutes: number): string {
 }
 
 /**
- * Format "Free until X (Y)" message for currently available rooms
+ * Format a time as "H:MM AM/PM"
  */
-function formatFreeUntilWithDuration(untilTime: Date, durationMinutes: number): string {
-  const hours = untilTime.getHours();
-  const minutes = untilTime.getMinutes();
+function formatTime(time: Date): string {
+  const hours = time.getHours();
+  const minutes = time.getMinutes();
   const ampm = hours >= 12 ? 'PM' : 'AM';
   const displayHours = hours % 12 || 12;
   const displayMinutes = minutes.toString().padStart(2, '0');
+  return `${displayHours}:${displayMinutes} ${ampm}`;
+}
 
-  return `Free until ${displayHours}:${displayMinutes} ${ampm} (${formatDuration(durationMinutes)})`;
+/**
+ * Format "Free from X until Y (Z)" message for currently available rooms
+ */
+function formatFreeUntilWithDuration(fromTime: Date, untilTime: Date, durationMinutes: number): string {
+  return `${formatTime(fromTime)} - ${formatTime(untilTime)}\n(${formatDuration(durationMinutes)} free)`;
 }
 
 const MIN_USABLE_MINUTES = 30;
@@ -196,6 +184,7 @@ export function calculateAvailability(
       nextClassStartsAt: null,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: isWeekend ? 'Closed on weekends' : 'No classes today',
       distanceMiles: null,
     };
@@ -211,6 +200,7 @@ export function calculateAvailability(
       nextClassStartsAt: buildingStatus.opensAt,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: formatTimeUntil(buildingStatus.opensAt, 'Opens at'),
       distanceMiles: null,
     };
@@ -226,6 +216,7 @@ export function calculateAvailability(
       nextClassStartsAt: null,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: 'Building closed',
       distanceMiles: null,
     };
@@ -241,14 +232,16 @@ export function calculateAvailability(
       nextClassStartsAt: null,
       currentClassEndsAt: null,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: 'No classes today',
       distanceMiles: null,
     };
   }
 
-  // Find current class and next class
+  // Find current class, next class, and previous class
   let currentClass: ClassSchedule | null = null;
   let nextClass: ClassSchedule | null = null;
+  let previousClass: ClassSchedule | null = null;
 
   for (const schedule of schedules) {
     const startTime = parseTimeToday(schedule.start_time, now);
@@ -259,6 +252,11 @@ export function calculateAvailability(
     } else if (now < startTime) {
       if (!nextClass || startTime < parseTimeToday(nextClass.start_time, now)) {
         nextClass = schedule;
+      }
+    } else if (endTime <= now) {
+      // Class ended before now - track the most recent one
+      if (!previousClass || endTime > parseTimeToday(previousClass.end_time, now)) {
+        previousClass = schedule;
       }
     }
   }
@@ -278,12 +276,18 @@ export function calculateAvailability(
       nextClassStartsAt: nextClass ? parseTimeToday(nextClass.start_time, now) : null,
       currentClassEndsAt: endsAt,
       minutesUntilNextClass: null,
+      availableDurationMinutes: null,
       statusText: nextWindow
         ? formatFreeAtWithDuration(nextWindow.startsAt, nextWindow.durationMinutes)
         : 'Busy all day',
       distanceMiles: null,
     };
   }
+
+  // Determine when the room actually became free
+  const freeStartTime = previousClass
+    ? parseTimeToday(previousClass.end_time, now)
+    : buildingStatus.opensAt;
 
   // Room not currently in class - check gap to next class
   if (nextClass) {
@@ -303,12 +307,18 @@ export function calculateAvailability(
         nextClassStartsAt: nextStartTime,
         currentClassEndsAt: null,
         minutesUntilNextClass: minutesUntil,
+        availableDurationMinutes: null,
         statusText: nextWindow
           ? formatFreeAtWithDuration(nextWindow.startsAt, nextWindow.durationMinutes)
           : 'Busy all day',
         distanceMiles: null,
       };
     }
+
+    // Calculate full duration from when room became free
+    const fullDurationMinutes = Math.floor(
+      (nextStartTime.getTime() - freeStartTime.getTime()) / 60000
+    );
 
     return {
       classroom,
@@ -318,14 +328,15 @@ export function calculateAvailability(
       nextClassStartsAt: nextStartTime,
       currentClassEndsAt: null,
       minutesUntilNextClass: minutesUntil,
-      statusText: formatFreeUntilWithDuration(nextStartTime, minutesUntil),
+      availableDurationMinutes: fullDurationMinutes,
+      statusText: formatFreeUntilWithDuration(freeStartTime, nextStartTime, fullDurationMinutes),
       distanceMiles: null,
     };
   }
 
   // No more classes today - free until building closes
-  const minutesUntilClose = Math.floor(
-    (buildingStatus.closesAt.getTime() - now.getTime()) / 60000
+  const closeDurationMinutes = Math.floor(
+    (buildingStatus.closesAt.getTime() - freeStartTime.getTime()) / 60000
   );
   return {
     classroom,
@@ -335,7 +346,8 @@ export function calculateAvailability(
     nextClassStartsAt: null,
     currentClassEndsAt: null,
     minutesUntilNextClass: null,
-    statusText: formatFreeUntilWithDuration(buildingStatus.closesAt, minutesUntilClose),
+    availableDurationMinutes: closeDurationMinutes,
+    statusText: formatFreeUntilWithDuration(freeStartTime, buildingStatus.closesAt, closeDurationMinutes),
     distanceMiles: null,
   };
 }

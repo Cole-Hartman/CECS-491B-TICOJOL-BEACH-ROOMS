@@ -203,6 +203,7 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 12,
     marginTop: 4,
+    textAlign: 'right',
   },
   chevron: {
     opacity: 0.5,

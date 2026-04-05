@@ -1,4 +1,5 @@
 import { Ionicons } from '@expo/vector-icons';
+import { useRouter } from 'expo-router';
 import { useEffect, useState, useMemo, useRef, useCallback } from 'react';
 import {
   ActivityIndicator,
@@ -19,18 +20,26 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BuildingGroup } from '@/components/building-group';
 import { CampusMap } from '@/components/campus-map';
 import { CollapsibleMapContainer } from '@/components/collapsible-map-container';
+import { FilterButton } from '@/components/filter-button';
+import { FilterMenu } from '@/components/filter-menu';
+import { ReportFormModal } from '@/components/report-form-modal';
+import { ReportSuccessModal } from '@/components/report-success-modal';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
+import { TimePickerModal } from '@/components/time-picker-modal';
 import { useBuildingPins } from '@/hooks/use-building-pins';
 import { useClassrooms } from '@/hooks/use-classrooms';
 import { useColorSchemeToggle } from '@/hooks/use-color-scheme';
 import { useSettings } from '@/hooks/use-settings';
 import { useLocation } from '@/hooks/use-location';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import type { ClassroomAvailability } from '@/types/database';
+import { useAuth } from '@/providers/auth-provider';
+import type { ClassroomAvailability, Report } from '@/types/database';
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const router = useRouter();
+  const { isLoggedIn } = useAuth();
   const { colorScheme, setColorScheme } = useColorSchemeToggle();
   const tintColor = useThemeColor({}, 'tint');
   const iconColor = useThemeColor({}, 'icon');
@@ -61,6 +70,17 @@ export default function HomeScreen() {
   const { settings, update: updateSetting, loaded: settingsLoaded } = useSettings();
   const [settingsOpen, setSettingsOpen] = useState(false);
 
+  // Filter state
+  const [selectedTime, setSelectedTime] = useState<Date | null>(null);
+  const [minDuration, setMinDuration] = useState<number | null>(null);
+  const [timePickerVisible, setTimePickerVisible] = useState(false);
+  const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+
+  // Report state
+  const [reportModalVisible, setReportModalVisible] = useState(false);
+  const [successModalVisible, setSuccessModalVisible] = useState(false);
+  const [submittedReportId, setSubmittedReportId] = useState<string>('');
+
   useEffect(() => {
     if (settingsLoaded) {
       setColorScheme(settings.darkMode ? 'dark' : 'light');
@@ -71,6 +91,22 @@ export default function HomeScreen() {
   const [usageExpanded, setUsageExpanded] = useState(false);
   const [popoverTopRight, setPopoverTopRight] = useState<{ top: number; right: number } | null>(null);
   const settingsButtonRef = useRef<View>(null);
+
+  const handleReportSuccess = (report: Report) => {
+    setReportModalVisible(false);
+    setSubmittedReportId(report.id);
+    setSuccessModalVisible(true);
+  };
+
+  const handleOpenReportModal = () => {
+    setSettingsOpen(false);
+    setReportModalVisible(true);
+  };
+
+  const handleOpenMyReports = () => {
+    setSettingsOpen(false);
+    router.push('/my-reports' as '/login');
+  };
 
   const openSettingsPopover = () => {
     const node = settingsButtonRef.current;
@@ -113,6 +149,32 @@ export default function HomeScreen() {
       scrollViewRef.current?.scrollTo({ y, animated: true });
     }
   }, []);
+
+  const handleTimeConfirm = (time: Date) => {
+    setSelectedTime(time);
+    setTimePickerVisible(false);
+  };
+
+  const handleTimeReset = () => {
+    setSelectedTime(null);
+    setTimePickerVisible(false);
+  };
+
+  const locationEnabled = locationStatus === 'granted' && location !== null;
+
+  const handleFilterApply = (newState: { selectedTime: Date | null; sortByDistance: boolean; minDuration: number | null }) => {
+    setSelectedTime(newState.selectedTime);
+    if (newState.sortByDistance !== settings?.sortByDistance) {
+      updateSetting('sortByDistance', newState.sortByDistance);
+    }
+    setMinDuration(newState.minDuration);
+  };
+
+  // Count active filters for badge
+  const activeFilterCount =
+    (selectedTime !== null ? 1 : 0) +
+    (settings?.sortByDistance && locationEnabled ? 1 : 0) +
+    (minDuration !== null ? 1 : 0);
 
   // Filter and group rooms by building
   const buildingGroups = useMemo(() => {
@@ -291,14 +353,10 @@ export default function HomeScreen() {
             )}
           </View>
 
-          <TouchableOpacity
-            style={[styles.iconCircle, { borderColor: strokeColor }]}
-            onPress={() => {/* TODO: open filter */}}
-            accessibilityRole="button"
-            accessibilityLabel="Filter rooms"
-          >
-            <Ionicons name="options-outline" size={18} color={textColor} />
-          </TouchableOpacity>
+          <FilterButton
+            activeFilterCount={activeFilterCount}
+            onPress={() => setFilterMenuVisible(true)}
+          />
 
           <TouchableOpacity
             ref={settingsButtonRef}
@@ -310,6 +368,38 @@ export default function HomeScreen() {
             <Ionicons name="settings-outline" size={18} color={textColor} />
           </TouchableOpacity>
         </View>
+
+        {/* Filter Menu Modal */}
+        <FilterMenu
+          visible={filterMenuVisible}
+          onClose={() => setFilterMenuVisible(false)}
+          filterState={{ selectedTime, sortByDistance: settings?.sortByDistance ?? false, minDuration }}
+          onApply={handleFilterApply}
+          onOpenTimePicker={() => {
+            setFilterMenuVisible(false);
+            setTimePickerVisible(true);
+          }}
+          locationEnabled={locationEnabled}
+          onRequestLocation={requestPermission}
+        />
+
+        {/* Time Picker Modal */}
+        <TimePickerModal
+          visible={timePickerVisible}
+          initialTime={selectedTime || new Date()}
+          onConfirm={(time) => {
+            handleTimeConfirm(time);
+            setFilterMenuVisible(true);
+          }}
+          onCancel={() => {
+            setTimePickerVisible(false);
+            setFilterMenuVisible(true);
+          }}
+          onReset={() => {
+            handleTimeReset();
+            setFilterMenuVisible(true);
+          }}
+        />
 
         {/* Settings Modal */}
         <Modal
@@ -439,17 +529,53 @@ export default function HomeScreen() {
                   ))}
                 </View>
               )}
+
+              <View style={[styles.settingsDivider, { backgroundColor: dividerColor }]} />
+
+              {/* Report Section */}
+              <TouchableOpacity style={styles.settingsLinkRow} onPress={handleOpenReportModal}>
+                <View style={styles.settingsRowLeft}>
+                  <Ionicons name="flag-outline" size={18} color={iconColor} />
+                  <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>
+                    Report an Issue
+                  </ThemedText>
+                </View>
+                <Ionicons name="chevron-forward" size={18} color={iconColor} />
+              </TouchableOpacity>
+
+              {isLoggedIn && (
+                <TouchableOpacity style={styles.settingsLinkRow} onPress={handleOpenMyReports}>
+                  <View style={styles.settingsRowLeft}>
+                    <Ionicons name="document-text-outline" size={18} color={iconColor} />
+                    <ThemedText style={[styles.settingsRowLabel, { color: popoverText }]}>
+                      My Reports
+                    </ThemedText>
+                  </View>
+                  <Ionicons name="chevron-forward" size={18} color={iconColor} />
+                </TouchableOpacity>
+              )}
             </Pressable>
           </Pressable>
         </Modal>
 
-        {/* Content */}
         {/* Content */}
         <View style={styles.roomContent}>
           {renderContent()}
         </View>
       </View>
 
+      {/* Report Modals */}
+      <ReportFormModal
+        visible={reportModalVisible}
+        onClose={() => setReportModalVisible(false)}
+        onSuccess={handleReportSuccess}
+      />
+
+      <ReportSuccessModal
+        visible={successModalVisible}
+        onClose={() => setSuccessModalVisible(false)}
+        reportId={submittedReportId}
+      />
     </ThemedView>
   );
 }
@@ -546,6 +672,13 @@ const styles = StyleSheet.create({
   usageSection: {
     paddingHorizontal: 6,
     paddingTop: 6,
+  },
+  settingsLinkRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 10,
+    paddingHorizontal: 6,
   },
   bulletRow: {
     flexDirection: 'row',

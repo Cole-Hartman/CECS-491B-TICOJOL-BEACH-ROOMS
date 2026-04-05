@@ -69,7 +69,8 @@
         {
           "locationWhenInUsePermission": "Allow BeachRooms to use your location to find nearby classrooms."
         }
-      ]
+      ],
+      "@react-native-community/datetimepicker"
     ],
     "experiments": {
       "typedRoutes": true,

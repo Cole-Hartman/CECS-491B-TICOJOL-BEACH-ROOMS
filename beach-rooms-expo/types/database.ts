@@ -53,6 +53,7 @@ export interface ClassroomAvailability {
   nextClassStartsAt: Date | null;
   currentClassEndsAt: Date | null;
   minutesUntilNextClass: number | null;
+  availableDurationMinutes: number | null;
   statusText: string;
   distanceMiles: number | null;
 }
@@ -66,4 +67,22 @@ export interface Favorite {
 
 export interface FavoriteWithClassroom extends Favorite {
   classroom: ClassroomWithBuilding;
+}
+
+// Report types
+export type ReportCategory = 'incorrect_time' | 'incorrect_info' | 'app_bug' | 'other';
+export type ReportStatus = 'submitted' | 'in_review' | 'resolved' | 'closed';
+
+export interface Report {
+  id: string;
+  user_id: string;
+  classroom_id: string | null;
+  report_type: ReportCategory;
+  description: string;
+  status: ReportStatus;
+  screenshot_url: string | null;
+  contact_email: string | null;
+  device_info: { platform: string; os_version?: string } | null;
+  app_version: string | null;
+  created_at: string;
 }

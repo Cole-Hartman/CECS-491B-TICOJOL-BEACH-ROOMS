@@ -12,7 +12,10 @@ interface FilterButtonProps {
 export function FilterButton({ activeFilterCount, onPress }: FilterButtonProps) {
   const tintColor = useThemeColor({}, 'tint');
   const textColor = useThemeColor({}, 'text');
-  const strokeColor = useThemeColor({}, 'icon');
+  const strokeColor = useThemeColor(
+    { light: 'rgba(0,0,0,0.2)', dark: 'rgba(255,255,255,0.2)' },
+    'text'
+  );
 
   const hasFilters = activeFilterCount > 0;
 

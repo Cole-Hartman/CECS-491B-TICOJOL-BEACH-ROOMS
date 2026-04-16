@@ -10,6 +10,7 @@ import type { ClassroomAvailability } from '@/types/database';
 
 const pinGreen = require('@/assets/images/pin-green.png');
 const pinRed = require('@/assets/images/pin-red.png');
+const pinAmber = require('@/assets/images/pin-amber.png');
 
 
 function formatTime(date: Date): string {
@@ -33,20 +34,24 @@ interface BuildingGroupProps {
   buildingName: string;
   buildingCode: string;
   available: ClassroomAvailability[];
+  openingSoon: ClassroomAvailability[];
   occupied: ClassroomAvailability[];
   forceExpanded?: boolean;
   onExpand?: () => void;
   onLayout?: (e: { nativeEvent: { layout: { y: number } } }) => void;
+  showOpeningSoon?: boolean;
 }
 
 export function BuildingGroup({
   buildingName,
   buildingCode,
   available,
+  openingSoon,
   occupied,
   forceExpanded,
   onExpand,
   onLayout,
+  showOpeningSoon = true,
 }: BuildingGroupProps) {
   const buildingNameColor = useThemeColor(
     { light: 'rgba(0,0,0,0.7)', dark: 'rgba(255,255,255,0.85)' },
@@ -57,13 +62,14 @@ export function BuildingGroup({
     'text'
   );
 
-  const totalRooms = available.length + occupied.length;
+  const totalRooms = available.length + (showOpeningSoon ? openingSoon.length : 0) + occupied.length;
   const hasAvailable = available.length > 0;
   const badgeBg = hasAvailable ? '#e6f9ec' : '#fde8ea';
   const badgeBorder = hasAvailable ? '#7ee8a0' : '#f5a3ab';
   const badgeText = hasAvailable ? '#1a9e3f' : '#c9303a';
   const [expanded, setExpanded] = useState(false);
   const [availableExpanded, setAvailableExpanded] = useState(true);
+  const [openingSoonExpanded, setOpeningSoonExpanded] = useState(true);
   const [occupiedExpanded, setOccupiedExpanded] = useState(false);
 
   useEffect(() => {
@@ -128,6 +134,31 @@ export function BuildingGroup({
             </View>
           )}
 
+          {/* Opening Soon Section */}
+          {showOpeningSoon && openingSoon.length > 0 && (
+            <View>
+              <TouchableOpacity
+                style={styles.statusHeader}
+                onPress={() => setOpeningSoonExpanded(!openingSoonExpanded)}
+                activeOpacity={0.7}
+              >
+                <ThemedText style={[styles.statusLabel, { color: buildingNameColor }]}>
+                  Opening Soon
+                </ThemedText>
+                <Ionicons
+                  name={openingSoonExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={14}
+                  color={buildingNameColor}
+                />
+              </TouchableOpacity>
+
+              {openingSoonExpanded &&
+                openingSoon.map((room) => (
+                  <RoomRow key={room.classroom.id} room={room} type="openingSoon" buildingCode={buildingCode} dividerColor={dividerColor} />
+                ))}
+            </View>
+          )}
+
           {/* Occupied Section */}
           {occupied.length > 0 && (
             <View>
@@ -158,7 +189,16 @@ export function BuildingGroup({
   );
 }
 
-function RoomStatusText({ room, type }: { room: ClassroomAvailability; type: 'available' | 'occupied' }) {
+function CountdownChip({ minutesUntilFree }: { minutesUntilFree: number }) {
+  const label = minutesUntilFree <= 1 ? 'Free in <1 min' : `Free in ${minutesUntilFree} min`;
+  return (
+    <View style={styles.countdownChip}>
+      <Text style={styles.countdownChipText}>{label}</Text>
+    </View>
+  );
+}
+
+function RoomStatusText({ room, type }: { room: ClassroomAvailability; type: 'available' | 'occupied' | 'openingSoon' }) {
   const iconColor = useThemeColor({}, 'icon');
 
   // Available rooms: parse "Free until H:MM AM/PM (Xh Ym)" from statusText as fallback
@@ -180,6 +220,15 @@ function RoomStatusText({ room, type }: { room: ClassroomAvailability; type: 'av
         </Text>
       );
     }
+  }
+
+  // Opening Soon rooms: show "Free at X:XX" with countdown chip
+  if (type === 'openingSoon' && room.currentClassEndsAt) {
+    return (
+      <Text style={[styles.roomStatus, { color: iconColor }]}>
+        Free at <Text style={styles.roomStatusBold}>{formatTime(room.currentClassEndsAt)}</Text>
+      </Text>
+    );
   }
 
   // Occupied rooms: parse "Free at H:MM AM/PM for Xh Ym"
@@ -208,7 +257,7 @@ function RoomRow({
   dividerColor,
 }: {
   room: ClassroomAvailability;
-  type: 'available' | 'occupied';
+  type: 'available' | 'occupied' | 'openingSoon';
   buildingCode: string;
   dividerColor: string;
 }) {
@@ -218,6 +267,17 @@ function RoomRow({
     { light: 'rgba(0,0,0,0.7)', dark: 'rgba(255,255,255,0.85)' },
     'text'
   );
+
+  const getPinImage = () => {
+    if (type === 'available') return pinGreen;
+    if (type === 'openingSoon') return pinAmber;
+    return pinRed;
+  };
+
+  // Calculate minutes until free for opening soon rooms
+  const minutesUntilFree = type === 'openingSoon' && room.currentClassEndsAt
+    ? Math.max(1, Math.floor((room.currentClassEndsAt.getTime() - Date.now()) / 60000))
+    : null;
 
   return (
     <TouchableOpacity
@@ -229,13 +289,18 @@ function RoomRow({
       activeOpacity={0.7}
     >
       <Image
-        source={type === 'available' ? pinGreen : pinRed}
+        source={getPinImage()}
         style={styles.statusDot}
       />
       <View style={styles.roomInfo}>
-        <ThemedText style={[styles.roomNumber, { color: roomNameColor }]}>
-          {buildingCode} {room.classroom.room_number}
-        </ThemedText>
+        <View style={styles.roomNameRow}>
+          <ThemedText style={[styles.roomNumber, { color: roomNameColor }]}>
+            {buildingCode} {room.classroom.room_number}
+          </ThemedText>
+          {type === 'openingSoon' && minutesUntilFree !== null && (
+            <CountdownChip minutesUntilFree={minutesUntilFree} />
+          )}
+        </View>
         <RoomStatusText room={room} type={type} />
       </View>
       <Ionicons name="chevron-forward" size={14} color={roomNameColor} />
@@ -308,11 +373,29 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontFamily: 'Inter_600SemiBold',
   },
+  roomNameRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
   roomStatus: {
     fontSize: 13,
     marginTop: 1,
   },
   roomStatusBold: {
     fontWeight: '700',
+  },
+  countdownChip: {
+    backgroundColor: '#fef6e6',
+    borderWidth: 1,
+    borderColor: '#f5d78a',
+    borderRadius: 999,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+  },
+  countdownChipText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#b5850b',
   },
 });

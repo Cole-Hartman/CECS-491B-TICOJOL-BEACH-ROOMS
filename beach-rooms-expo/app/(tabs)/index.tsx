@@ -74,7 +74,7 @@ export default function HomeScreen() {
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
 
   // Fetch classrooms with filter parameters
-  const { classrooms, isLoading, error, refetch } = useClassrooms({
+  const { classrooms, openingSoonRooms, isLoading, error, refetch } = useClassrooms({
     userLocation: settings?.sortByDistance ? location : undefined,
     filterTime: selectedTime,
     minDuration,
@@ -181,6 +181,12 @@ export default function HomeScreen() {
     (settings?.sortByDistance && locationEnabled ? 1 : 0) +
     (minDuration !== null ? 1 : 0);
 
+  // Create a set of opening soon room IDs for quick lookup (only when no time filter)
+  const openingSoonIds = useMemo(() => {
+    if (selectedTime !== null) return new Set<string>();
+    return new Set(openingSoonRooms.map((r) => r.classroom.id));
+  }, [openingSoonRooms, selectedTime]);
+
   // Filter and group rooms by building
   const buildingGroups = useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -199,6 +205,7 @@ export default function HomeScreen() {
       buildingCode: string;
       distanceMiles: number | null;
       available: ClassroomAvailability[];
+      openingSoon: ClassroomAvailability[];
       occupied: ClassroomAvailability[];
     }>();
 
@@ -210,6 +217,7 @@ export default function HomeScreen() {
           buildingCode: room.classroom.building.code,
           distanceMiles: room.distanceMiles,
           available: [],
+          openingSoon: [],
           occupied: [],
         });
       }
@@ -234,9 +242,21 @@ export default function HomeScreen() {
 
       if (room.isAvailable && meetsMinDuration) {
         group.available.push(room);
+      } else if (openingSoonIds.has(room.classroom.id)) {
+        // Room is opening soon - add to openingSoon array
+        group.openingSoon.push(room);
       } else {
         group.occupied.push(room);
       }
+    }
+
+    // Sort openingSoon rooms by time-until-free (soonest first)
+    for (const group of groups.values()) {
+      group.openingSoon.sort((a, b) => {
+        const aTime = a.currentClassEndsAt?.getTime() ?? Infinity;
+        const bTime = b.currentClassEndsAt?.getTime() ?? Infinity;
+        return aTime - bTime;
+      });
     }
 
     // Sort buildings: those with available rooms first, then by distance or code
@@ -250,7 +270,7 @@ export default function HomeScreen() {
         return a.buildingCode.localeCompare(b.buildingCode);
       })
       .map(([id, data]) => ({ buildingId: id, ...data }));
-  }, [classrooms, searchQuery, settings?.sortByDistance, minDuration, selectedTime]);
+  }, [classrooms, searchQuery, settings?.sortByDistance, minDuration, selectedTime, openingSoonIds]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -312,6 +332,7 @@ export default function HomeScreen() {
               buildingName={group.buildingName}
               buildingCode={group.buildingCode}
               available={group.available}
+              openingSoon={group.openingSoon}
               occupied={group.occupied}
               forceExpanded={expandedBuildingId === group.buildingId}
               onExpand={() => {
@@ -323,6 +344,7 @@ export default function HomeScreen() {
               onLayout={(e) => {
                 buildingYPositions.current[group.buildingId] = e.nativeEvent.layout.y;
               }}
+              showOpeningSoon={selectedTime === null}
             />
           ))
         )}

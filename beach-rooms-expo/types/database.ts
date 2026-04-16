@@ -56,6 +56,7 @@ export interface ClassroomAvailability {
   availableDurationMinutes: number | null;
   statusText: string;
   distanceMiles: number | null;
+  todaySchedules: ClassSchedule[];
 }
 
 export interface Favorite {

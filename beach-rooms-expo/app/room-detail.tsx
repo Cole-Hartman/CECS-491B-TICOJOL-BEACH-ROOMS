@@ -12,32 +12,14 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { ReportFormModal } from '@/components/report-form-modal';
 import { ReportSuccessModal } from '@/components/report-success-modal';
+import { RoomScheduleBar } from '@/components/room-schedule-bar';
 import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useThemeColor } from '@/hooks/use-theme-color';
 import { getStatusColor, getStatusLabel } from '@/lib/availability';
-import { formatDistance } from '@/lib/distance';
 import { useRoomDetail } from '@/providers/room-detail-provider';
 import type { Report } from '@/types/database';
-
-const AMENITY_ICONS: Record<string, keyof typeof Ionicons.glyphMap> = {
-  projector: 'videocam-outline',
-  whiteboard: 'easel-outline',
-  outlets: 'flash-outline',
-  computer: 'desktop-outline',
-  smartboard: 'tv-outline',
-  microphone: 'mic-outline',
-};
-
-const AMENITY_LABELS: Record<string, string> = {
-  projector: 'Projector',
-  whiteboard: 'Whiteboard',
-  outlets: 'Power Outlets',
-  computer: 'Computers',
-  smartboard: 'Smart Board',
-  microphone: 'Microphone',
-};
 
 export default function RoomDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -75,11 +57,10 @@ export default function RoomDetailScreen() {
     );
   }
 
-  const { classroom, status, statusText, distanceMiles } = selectedRoom;
+  const { classroom, status, statusText, todaySchedules } = selectedRoom;
   const { building } = classroom;
   const roomName = `${building.code} ${classroom.room_number}`;
   const floorText = classroom.floor ? `Floor ${classroom.floor}` : null;
-  const distanceText = distanceMiles !== null ? formatDistance(distanceMiles) : null;
   const statusColor = getStatusColor(status);
   const statusLabel = getStatusLabel(status);
 
@@ -145,68 +126,25 @@ export default function RoomDetailScreen() {
           </ThemedText>
         </View>
 
-        {/* Details Section */}
-        <View style={styles.detailsSection}>
+        {/* Today's Schedule */}
+        <View style={styles.scheduleSection}>
           <ThemedText type="defaultSemiBold" style={styles.sectionTitle}>
-            Details
+            Today&apos;s Schedule
           </ThemedText>
-          <View style={[styles.detailsCard, { backgroundColor: 'rgba(128, 128, 128, 0.1)' }]}>
-            {/* Capacity */}
-            <View style={styles.detailRow}>
-              <View style={styles.detailIconContainer}>
-                <Ionicons name="people-outline" size={20} color={iconColor} />
-              </View>
-              <ThemedText style={styles.detailLabel}>Capacity</ThemedText>
-              <ThemedText style={styles.detailValue}>{classroom.capacity}</ThemedText>
+          <RoomScheduleBar schedules={todaySchedules} />
+          <View style={styles.legendRow}>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: '#e3f5e9' }]} />
+              <ThemedText style={[styles.legendLabel, { color: iconColor }]}>Open</ThemedText>
             </View>
-
-            {/* Distance */}
-            {distanceText && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconContainer}>
-                  <Ionicons name="location-outline" size={20} color={iconColor} />
-                </View>
-                <ThemedText style={styles.detailLabel}>Distance</ThemedText>
-                <ThemedText style={styles.detailValue}>{distanceText}</ThemedText>
-              </View>
-            )}
-
-            {/* Accessibility */}
-            {classroom.is_accessible && (
-              <View style={styles.detailRow}>
-                <View style={styles.detailIconContainer}>
-                  <Ionicons name="accessibility-outline" size={20} color={iconColor} />
-                </View>
-                <ThemedText style={styles.detailLabel}>Accessible</ThemedText>
-                <Ionicons name="checkmark-circle" size={20} color="#28a745" />
-              </View>
-            )}
-
-            {/* Amenities */}
-            {classroom.amenities.length > 0 && (
-              <View style={styles.amenitiesSection}>
-                <View style={styles.detailRow}>
-                  <View style={styles.detailIconContainer}>
-                    <Ionicons name="list-outline" size={20} color={iconColor} />
-                  </View>
-                  <ThemedText style={styles.detailLabel}>Amenities</ThemedText>
-                </View>
-                <View style={styles.amenitiesList}>
-                  {classroom.amenities.map((amenity) => {
-                    const iconName = AMENITY_ICONS[amenity.toLowerCase()] || 'ellipse-outline';
-                    const label = AMENITY_LABELS[amenity.toLowerCase()] || amenity;
-                    return (
-                      <View key={amenity} style={styles.amenityItem}>
-                        <Ionicons name={iconName} size={16} color={iconColor} />
-                        <ThemedText style={[styles.amenityLabel, { color: iconColor }]}>
-                          {label}
-                        </ThemedText>
-                      </View>
-                    );
-                  })}
-                </View>
-              </View>
-            )}
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { backgroundColor: '#fbdee2' }]} />
+              <ThemedText style={[styles.legendLabel, { color: iconColor }]}>Class</ThemedText>
+            </View>
+            <View style={styles.legendItem}>
+              <View style={[styles.legendSwatch, { borderColor: '#78716c', borderWidth: 2 }]} />
+              <ThemedText style={[styles.legendLabel, { color: iconColor }]}>Now</ThemedText>
+            </View>
           </View>
         </View>
 
@@ -329,50 +267,31 @@ const styles = StyleSheet.create({
     fontSize: 16,
     textAlign: 'center',
   },
-  detailsSection: {
+  scheduleSection: {
     marginBottom: 24,
   },
   sectionTitle: {
     fontSize: 18,
     marginBottom: 12,
   },
-  detailsCard: {
-    borderRadius: 12,
-    padding: 16,
+  legendRow: {
+    flexDirection: 'row',
+    gap: 20,
+    marginTop: 12,
+    paddingHorizontal: 4,
   },
-  detailRow: {
+  legendItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingVertical: 8,
+    gap: 8,
   },
-  detailIconContainer: {
-    width: 32,
+  legendSwatch: {
+    width: 16,
+    height: 16,
+    borderRadius: 4,
   },
-  detailLabel: {
-    flex: 1,
-    fontSize: 16,
-  },
-  detailValue: {
-    fontSize: 16,
-    fontWeight: '600',
-  },
-  amenitiesSection: {
-    marginTop: 8,
-  },
-  amenitiesList: {
-    marginLeft: 32,
-    marginTop: 8,
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-  },
-  amenityItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-  },
-  amenityLabel: {
-    fontSize: 14,
+  legendLabel: {
+    fontSize: 13,
   },
   bottomContainer: {
     position: 'absolute',

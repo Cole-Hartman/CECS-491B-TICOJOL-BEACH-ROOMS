@@ -59,22 +59,28 @@ export default function HomeScreen() {
     'background'
   );
   const { location, status: locationStatus, requestPermission, refreshLocation } = useLocation();
-  const { classrooms, isLoading, error, refetch } = useClassrooms({userLocation: settings?.sortByDistance ? location : undefined});
-  const buildingPins = useBuildingPins(classrooms);
+  const { settings, update: updateSetting, loaded: settingsLoaded } = useSettings();
   const scrollViewRef = useRef<ScrollView>(null);
   const buildingYPositions = useRef<Record<string, number>>({});
   const [expandedBuildingId, setExpandedBuildingId] = useState<string | null>(null);
   const [focusBuildingId, setFocusBuildingId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
-  const { settings, update: updateSetting, loaded: settingsLoaded } = useSettings();
-  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Filter state
   const [selectedTime, setSelectedTime] = useState<Date | null>(null);
   const [minDuration, setMinDuration] = useState<number | null>(null);
   const [timePickerVisible, setTimePickerVisible] = useState(false);
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
+
+  // Fetch classrooms with filter parameters
+  const { classrooms, isLoading, error, refetch } = useClassrooms({
+    userLocation: settings?.sortByDistance ? location : undefined,
+    filterTime: selectedTime,
+    minDuration,
+  });
+  const buildingPins = useBuildingPins(classrooms);
+  const [settingsOpen, setSettingsOpen] = useState(false);
 
   // Report state
   const [reportModalVisible, setReportModalVisible] = useState(false);
@@ -208,7 +214,25 @@ export default function HomeScreen() {
         });
       }
       const group = groups.get(id)!;
+      // Check if room meets minimum duration requirement (remaining time from now)
+      let remainingMinutes: number | null = null;
       if (room.isAvailable) {
+        if (room.minutesUntilNextClass !== null) {
+          // Room has a next class - use time until that class
+          remainingMinutes = room.minutesUntilNextClass;
+        } else if (room.classroom.building.weekday_close) {
+          // No next class - calculate time until building closes
+          const now = selectedTime ?? new Date();
+          const [hours, minutes] = room.classroom.building.weekday_close.split(':').map(Number);
+          const closeTime = new Date(now);
+          closeTime.setHours(hours, minutes, 0, 0);
+          remainingMinutes = Math.floor((closeTime.getTime() - now.getTime()) / 60000);
+        }
+      }
+      const meetsMinDuration = minDuration === null ||
+        (remainingMinutes !== null && remainingMinutes >= minDuration);
+
+      if (room.isAvailable && meetsMinDuration) {
         group.available.push(room);
       } else {
         group.occupied.push(room);
@@ -226,7 +250,7 @@ export default function HomeScreen() {
         return a.buildingCode.localeCompare(b.buildingCode);
       })
       .map(([id, data]) => ({ buildingId: id, ...data }));
-  }, [classrooms, searchQuery, settings?.sortByDistance]);
+  }, [classrooms, searchQuery, settings?.sortByDistance, minDuration, selectedTime]);
 
   const handleRefresh = async () => {
     setRefreshing(true);

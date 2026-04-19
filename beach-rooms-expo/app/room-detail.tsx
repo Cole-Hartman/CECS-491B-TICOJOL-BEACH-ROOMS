@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -34,6 +34,49 @@ const AMENITY_LABELS: Record<string, string> = {
   smartboard: 'Smart Board',
   microphone: 'Microphone',
 };
+
+interface CountdownTimerProps {
+  targetTime: Date;
+  label: string;
+}
+
+function CountdownTimer({ targetTime, label }: CountdownTimerProps) {
+  const [timeLeft, setTimeLeft] = useState<string>('');
+
+  useEffect(() => {
+    const updateCountdown = () => {
+      const now = new Date();
+      const diff = targetTime.getTime() - now.getTime();
+
+      if (diff <= 0) {
+        setTimeLeft('00:00');
+        return;
+      }
+
+      const hours = Math.floor(diff / (1000 * 60 * 60));
+      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+      const seconds = Math.floor((diff % (1000 * 60)) / 1000);
+
+      if (hours > 0) {
+        setTimeLeft(`${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      } else {
+        setTimeLeft(`${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`);
+      }
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [targetTime]);
+
+  return (
+    <View style={styles.countdownContainer}>
+      <ThemedText style={styles.countdownLabel}>{label}</ThemedText>
+      <ThemedText style={styles.countdownTime}>{timeLeft}</ThemedText>
+    </View>
+  );
+}
 
 export default function RoomDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -123,6 +166,33 @@ export default function RoomDetailScreen() {
           <ThemedText style={[styles.statusText, { color: iconColor }]}>
             {statusText}
           </ThemedText>
+          
+          {/* Countdown Timer */}
+          {(() => {
+            if (status === 'open' && selectedRoom.nextClassStartsAt) {
+              return (
+                <CountdownTimer 
+                  targetTime={selectedRoom.nextClassStartsAt} 
+                  label="Free for" 
+                />
+              );
+            } else if (status === 'in_use' && selectedRoom.currentClassEndsAt) {
+              return (
+                <CountdownTimer 
+                  targetTime={selectedRoom.currentClassEndsAt} 
+                  label="Free in" 
+                />
+              );
+            } else if (status === 'limited' && selectedRoom.nextClassStartsAt) {
+              return (
+                <CountdownTimer 
+                  targetTime={selectedRoom.nextClassStartsAt} 
+                  label="Free in" 
+                />
+              );
+            }
+            return null;
+          })()}
         </View>
 
         {/* Details Section */}
@@ -282,6 +352,20 @@ const styles = StyleSheet.create({
   },
   statusText: {
     fontSize: 16,
+  },
+  countdownContainer: {
+    alignItems: 'center',
+    marginTop: 12,
+  },
+  countdownLabel: {
+    fontSize: 14,
+    marginBottom: 4,
+    opacity: 0.8,
+  },
+  countdownTime: {
+    fontSize: 24,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'], // Monospace numbers for consistent width
   },
   detailsSection: {
     marginBottom: 24,

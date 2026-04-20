@@ -1,6 +1,6 @@
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   ActivityIndicator,
   ScrollView,
@@ -17,9 +17,17 @@ import { ThemedText } from '@/components/themed-text';
 import { ThemedView } from '@/components/themed-view';
 import { useFavorites } from '@/hooks/use-favorites';
 import { useThemeColor } from '@/hooks/use-theme-color';
-import { getStatusColor, getStatusLabel } from '@/lib/availability';
+import { calculateAvailability, findNextUsableWindow, getStatusColor, getStatusLabel, isBuildingOpen } from '@/lib/availability';
 import { useRoomDetail } from '@/providers/room-detail-provider';
 import type { Report } from '@/types/database';
+
+function formatHMMSS(totalSeconds: number): string {
+  const clampedSeconds = Math.max(0, Math.floor(totalSeconds));
+  const hours = Math.floor(clampedSeconds / 3600);
+  const minutes = Math.floor((clampedSeconds % 3600) / 60);
+  const seconds = clampedSeconds % 60;
+  return `${hours}:${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`;
+}
 
 export default function RoomDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -35,6 +43,15 @@ export default function RoomDetailScreen() {
   const [reportModalVisible, setReportModalVisible] = useState(false);
   const [successModalVisible, setSuccessModalVisible] = useState(false);
   const [submittedReportId, setSubmittedReportId] = useState<string>('');
+  const [now, setNow] = useState(() => new Date());
+
+  useEffect(() => {
+    if (!selectedRoom) return;
+    const id = setInterval(() => {
+      setNow(new Date());
+    }, 1000);
+    return () => clearInterval(id);
+  }, [selectedRoom]);
 
   const handleReportSuccess = (report: Report) => {
     setReportModalVisible(false);
@@ -47,7 +64,12 @@ export default function RoomDetailScreen() {
     router.back();
   };
 
-  if (!selectedRoom) {
+  const liveAvailability = useMemo(() => {
+    if (!selectedRoom) return null;
+    return calculateAvailability(selectedRoom.classroom, selectedRoom.todaySchedules, now);
+  }, [selectedRoom, now]);
+
+  if (!selectedRoom || !liveAvailability) {
     return (
       <ThemedView style={[styles.container, { paddingTop: insets.top }]}>
         <View style={styles.centerContent}>
@@ -57,7 +79,10 @@ export default function RoomDetailScreen() {
     );
   }
 
-  const { classroom, status, statusText, todaySchedules } = selectedRoom;
+  const { classroom, todaySchedules } = selectedRoom;
+
+  const status = liveAvailability.status;
+  const statusText = liveAvailability.statusText;
   const { building } = classroom;
   const roomName = `${building.code} ${classroom.room_number}`;
   const floorText = classroom.floor ? `Floor ${classroom.floor}` : null;
@@ -65,6 +90,18 @@ export default function RoomDetailScreen() {
   const statusLabel = getStatusLabel(status);
 
   const isCurrentlyFavorite = isFavorite(classroom.id);
+
+  const countdownTarget =
+    status === 'open'
+      ? liveAvailability.nextClassStartsAt
+      : status === 'in_use'
+        ? liveAvailability.currentClassEndsAt
+        : status === 'limited'
+          ? liveAvailability.nextClassStartsAt
+        : null;
+
+  const countdownSeconds =
+    countdownTarget !== null ? Math.max(0, Math.floor((countdownTarget.getTime() - now.getTime()) / 1000)) : null;
 
   const handleToggleFavorite = async () => {
     setIsSaving(true);
@@ -124,6 +161,12 @@ export default function RoomDetailScreen() {
           <ThemedText style={[styles.statusText, { color: iconColor }]}>
             {statusText}
           </ThemedText>
+          {countdownSeconds !== null && countdownTarget !== null && (
+            <ThemedText style={[styles.countdownText, { color: iconColor }]}>
+              {status === 'open' || status === 'limited' ? 'Next class in ' : 'Free in '}
+              {formatHMMSS(countdownSeconds)}
+            </ThemedText>
+          )}
         </View>
 
         {/* Today's Schedule */}
@@ -266,6 +309,12 @@ const styles = StyleSheet.create({
   statusText: {
     fontSize: 16,
     textAlign: 'center',
+  },
+  countdownText: {
+    fontSize: 16,
+    textAlign: 'center',
+    marginTop: 6,
+    fontVariant: ['tabular-nums'],
   },
   scheduleSection: {
     marginBottom: 24,

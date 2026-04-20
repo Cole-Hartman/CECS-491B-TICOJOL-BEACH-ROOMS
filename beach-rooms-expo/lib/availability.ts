@@ -124,7 +124,7 @@ interface UsableWindow {
  * Find the next time when the room will be free for >= 30 minutes.
  * Returns the start time and duration of the usable window, or null if none.
  */
-function findNextUsableWindow(
+export function findNextUsableWindow(
   schedules: ClassSchedule[],
   fromTime: Date,
   buildingCloses: Date

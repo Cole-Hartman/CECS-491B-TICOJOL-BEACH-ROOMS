@@ -365,7 +365,6 @@ export default function HomeScreen() {
               buildingPins={buildingPins}
               focusBuildingId={focusBuildingId}
               onBuildingPress={handleBuildingPress}
-              userLocation={location}
             />
           </CollapsibleMapContainer>
         </View>

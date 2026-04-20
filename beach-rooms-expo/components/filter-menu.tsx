@@ -65,6 +65,7 @@ export function FilterMenu({
   const handleToggleDistance = () => {
     if (!locationEnabled) {
       onRequestLocation();
+      return;
     }
     onApply({ ...filterState, sortByDistance: !sortByDistance });
   };
@@ -210,7 +211,7 @@ export function FilterMenu({
                 )}
               </View>
               <Switch
-                value={sortByDistance}
+                value={locationEnabled && sortByDistance}
                 onValueChange={handleToggleDistance}
                 trackColor={{ false: dividerColor, true: tintColor }}
                 thumbColor="#ffffff"

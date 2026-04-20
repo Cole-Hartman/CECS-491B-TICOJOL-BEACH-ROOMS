@@ -7,10 +7,8 @@ import {
   CSULB_CENTER,
   CSULB_DEFAULT_ZOOM,
   CSULB_BOUNDS,
-  isWithinCampusBounds,
 } from '@/constants/mapbox';
 import type { BuildingPin } from '@/hooks/use-building-pins';
-import type { UserLocation } from '@/hooks/use-location';
 
 const pinGreen = Image.resolveAssetSource(require('@/assets/images/pin-green.png'));
 const pinRed = Image.resolveAssetSource(require('@/assets/images/pin-red.png'));
@@ -21,11 +19,9 @@ interface CampusMapProps {
   buildingPins: BuildingPin[];
   focusBuildingId?: string | null;
   onBuildingPress: (buildingId: string) => void;
-  /** User location for one-time auto-center on cold launch. */
-  userLocation?: UserLocation | null;
 }
 
-export function CampusMap({ buildingPins, focusBuildingId, onBuildingPress, userLocation }: CampusMapProps) {
+export function CampusMap({ buildingPins, focusBuildingId, onBuildingPress }: CampusMapProps) {
   // Download offline tile pack for CSULB campus
   useEffect(() => {
     const downloadOfflinePack = async () => {
@@ -80,21 +76,6 @@ export function CampusMap({ buildingPins, focusBuildingId, onBuildingPress, user
 
   const mapRef = useRef<MapView>(null);
   const cameraRef = useRef<MapboxGL.Camera>(null);
-  const hasAutoCentered = useRef(false);
-
-  // One-time auto-center on user location (cold launch only)
-  useEffect(() => {
-    if (hasAutoCentered.current || !userLocation || !cameraRef.current) return;
-    hasAutoCentered.current = true;
-
-    if (isWithinCampusBounds(userLocation.longitude, userLocation.latitude)) {
-      cameraRef.current.setCamera({
-        centerCoordinate: [userLocation.longitude, userLocation.latitude],
-        zoomLevel: CSULB_DEFAULT_ZOOM,
-        animationDuration: 600,
-      });
-    }
-  }, [userLocation]);
 
   useEffect(() => {
     if (!focusBuildingId || !cameraRef.current) return;

@@ -10,3 +10,13 @@ export const CSULB_BOUNDS = {
   ne: [-118.104, 33.792] as [number, number],
   sw: [-118.124, 33.773] as [number, number],
 };
+
+/** Returns true if the given coordinates fall within the CSULB campus bounds. */
+export function isWithinCampusBounds(longitude: number, latitude: number): boolean {
+  return (
+    longitude >= CSULB_BOUNDS.sw[0] &&
+    longitude <= CSULB_BOUNDS.ne[0] &&
+    latitude >= CSULB_BOUNDS.sw[1] &&
+    latitude <= CSULB_BOUNDS.ne[1]
+  );
+}

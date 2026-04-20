@@ -74,7 +74,7 @@ export default function HomeScreen() {
   const [filterMenuVisible, setFilterMenuVisible] = useState(false);
 
   // Fetch classrooms with filter parameters
-  const { classrooms, openingSoonRooms, isLoading, error, refetch } = useClassrooms({
+  const { classrooms, availableRooms, openingSoonRooms, isLoading, error, refetch } = useClassrooms({
     userLocation: settings?.sortByDistance ? location : undefined,
     filterTime: selectedTime,
     minDuration,
@@ -270,7 +270,7 @@ export default function HomeScreen() {
         return a.buildingCode.localeCompare(b.buildingCode);
       })
       .map(([id, data]) => ({ buildingId: id, ...data }));
-  }, [classrooms, searchQuery, settings?.sortByDistance, minDuration, selectedTime, openingSoonIds]);
+  }, [classrooms, availableRooms, searchQuery, settings?.sortByDistance, minDuration, selectedTime, openingSoonIds]);
 
   const handleRefresh = async () => {
     setRefreshing(true);
@@ -418,6 +418,7 @@ export default function HomeScreen() {
         <FilterMenu
           visible={filterMenuVisible}
           onClose={() => setFilterMenuVisible(false)}
+          matchingRoomCount={availableRooms.length}
           filterState={{ selectedTime, sortByDistance: settings?.sortByDistance ?? false, minDuration }}
           onApply={handleFilterApply}
           onOpenTimePicker={() => {

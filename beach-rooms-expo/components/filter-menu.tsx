@@ -22,6 +22,7 @@ const DURATION_OPTIONS = [
 interface FilterMenuProps {
   visible: boolean;
   onClose: () => void;
+  matchingRoomCount: number;
   filterState: FilterState;
   onApply: (newState: FilterState) => void;
   onOpenTimePicker: () => void;
@@ -32,6 +33,7 @@ interface FilterMenuProps {
 export function FilterMenu({
   visible,
   onClose,
+  matchingRoomCount,
   filterState,
   onApply,
   onOpenTimePicker,
@@ -54,6 +56,7 @@ export function FilterMenu({
     { light: '#f5f5f5', dark: '#2a2b2d' },
     'background'
   );
+  const dangerTextColor = useThemeColor({ light: '#dc3545', dark: '#ff6b6b' }, 'text');
 
   const { selectedTime, sortByDistance, minDuration } = filterState;
   const hasTimeFilter = selectedTime !== null;
@@ -80,6 +83,13 @@ export function FilterMenu({
   };
 
   const hasActiveFilters = hasTimeFilter || !sortByDistance || hasDurationFilter;
+  const countLabel =
+    matchingRoomCount === 0
+      ? 'No rooms match'
+      : matchingRoomCount === 1
+        ? '1 room matches'
+        : `${matchingRoomCount} rooms match`;
+  const isZero = matchingRoomCount === 0;
 
   return (
     <Modal
@@ -97,6 +107,10 @@ export function FilterMenu({
               <Ionicons name="close" size={24} color={iconColor} />
             </TouchableOpacity>
           </View>
+
+          <ThemedText style={[styles.matchCountText, { color: isZero ? dangerTextColor : iconColor }]}>
+            {countLabel}
+          </ThemedText>
 
           {/* Start Time Section */}
           <View style={styles.section}>
@@ -338,6 +352,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 16,
     gap: 12,
+  },
+  matchCountText: {
+    marginTop: -12,
+    marginBottom: 12,
+    fontSize: 14,
+    fontWeight: '600',
   },
   resetButton: {
     flexDirection: 'row',
